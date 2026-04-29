@@ -1,0 +1,29 @@
+spring:
+  application:
+    name: klarheit-backend
+  datasource:
+    url: jdbc:mysql://localhost:3306/lumina_optics?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: root
+    password: Fh050806
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+  sql:
+    init:
+      mode: never
+      schema-locations: classpath:schema.sql
+  jackson:
+    time-zone: UTC
+
+app:
+  jwt:
+    secret: 8VLHM6VfkR9VlgG9Q9LYBfW9Whw+T2q8/qQ9cTzJ8K9e8ZrJ4h4dJyt2qG0J7q9S
+    expiration-millis: 86400000
+
+server:
+  port: 8081

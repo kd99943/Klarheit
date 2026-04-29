@@ -1,0 +1,33 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-brand-primary: #0B2046; /* Deep Tech Blue */
+  --color-brand-secondary: #1F2937; /* Slate Gray */
+  --color-brand-cyan: #22d3ee; /* AR Tech Cyan Accent */
+  
+  --color-surface-white: #FFFFFF; /* Pure White */
+  --color-surface-offwhite: #F9FAFB; /* Off-white / Light Gray */
+
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  body {
+    @apply font-sans bg-surface-white text-brand-secondary antialiased selection:bg-brand-primary selection:text-white;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display text-brand-primary;
+  }
+
+  /* Global Form Element Overrides */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="tel"] {
+    @apply bg-transparent border-0 border-b border-gray-300 focus:ring-0 focus:border-brand-primary transition-colors px-0 py-2 w-full text-brand-primary placeholder:text-gray-400;
+  }
+}

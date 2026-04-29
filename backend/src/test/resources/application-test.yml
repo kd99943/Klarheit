@@ -1,0 +1,19 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:klarheit_test;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+
+app:
+  jwt:
+    secret: 8VLHM6VfkR9VlgG9Q9LYBfW9Whw+T2q8/qQ9cTzJ8K9e8ZrJ4h4dJyt2qG0J7q9S
+    expiration-millis: 86400000

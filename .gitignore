@@ -1,0 +1,15 @@
+backend/target/
+front_end/node_modules/
+front_end/dist/
+
+.env
+.env.local
+.env.*.local
+backend/.env
+backend/*.secret
+backend/src/main/resources/application-local.yml
+*.log
+
+.claude/
+.vscode/
+.idea/

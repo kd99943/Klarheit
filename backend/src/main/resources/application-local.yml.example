@@ -1,0 +1,16 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:h2:mem:klarheit_local;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE}
+    driver-class-name: ${DB_DRIVER_CLASS_NAME:org.h2.Driver}
+    username: ${DB_USERNAME:sa}
+    password: ${DB_PASSWORD:}
+  jpa:
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:none}
+  flyway:
+    enabled: true
+
+app:
+  jwt:
+    secret: ${APP_JWT_SECRET}
+    expiration-millis: ${APP_JWT_EXPIRATION_MILLIS:86400000}

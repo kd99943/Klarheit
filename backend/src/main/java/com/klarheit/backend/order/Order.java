@@ -12,8 +12,10 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToOne;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "orders")
@@ -46,6 +48,8 @@ public class Order {
     private String shippingAddress;
     @Column(name = "lens_option_types", nullable = false, length = 512)
     private String lensOptionTypes;
+    @Column(name = "created_at", nullable = false)
+    private LocalDateTime createdAt;
 
     public static Builder builder() { return new Builder(); }
     public Long getId() { return id; }
@@ -72,6 +76,15 @@ public class Order {
     public void setCustomerEmail(String customerEmail) { this.customerEmail = customerEmail; }
     public void setShippingAddress(String shippingAddress) { this.shippingAddress = shippingAddress; }
     public void setLensOptionTypes(String lensOptionTypes) { this.lensOptionTypes = lensOptionTypes; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+    }
 
     public static final class Builder {
         private final Order instance = new Order();
@@ -87,6 +100,7 @@ public class Order {
         public Builder customerEmail(String customerEmail) { instance.customerEmail = customerEmail; return this; }
         public Builder shippingAddress(String shippingAddress) { instance.shippingAddress = shippingAddress; return this; }
         public Builder lensOptionTypes(String lensOptionTypes) { instance.lensOptionTypes = lensOptionTypes; return this; }
+        public Builder createdAt(LocalDateTime createdAt) { instance.createdAt = createdAt; return this; }
         public Order build() { return instance; }
     }
 }

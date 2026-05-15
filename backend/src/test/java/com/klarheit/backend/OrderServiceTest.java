@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 
 import com.klarheit.backend.auth.UserAccount;
 import com.klarheit.backend.auth.UserAccountRepository;
+import com.klarheit.backend.email.EmailService;
 import com.klarheit.backend.lens.LensOption;
 import com.klarheit.backend.lens.LensOptionRepository;
 import com.klarheit.backend.order.Order;
@@ -43,6 +44,8 @@ class OrderServiceTest {
     private OrderRepository orderRepository;
     @Mock
     private UserAccountRepository userAccountRepository;
+    @Mock
+    private EmailService emailService;
 
     @InjectMocks
     private OrderService orderService;

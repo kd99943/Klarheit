@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronDown, FileText, LogOut, Menu, ShoppingBag, User, X } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useAuth } from "../../auth/AuthProvider";
+import { LanguageToggle } from "./LanguageToggle";
 
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -94,6 +95,7 @@ export function Navbar() {
           <div className="hidden xl:block text-[10px] uppercase tracking-widest text-slate-400 font-mono mr-2">
             Session: {user ? `${user.firstName.slice(0, 1)}${user.lastName.slice(0, 1)}-4920` : "CH-4920"}
           </div>
+          <LanguageToggle isDark={isDarkCanvas || scrolled} className="hidden sm:flex" />
           <button
             onClick={() => {
               if (requireAuth(
@@ -322,6 +324,9 @@ export function Navbar() {
             {item.label}
           </Link>
         ))}
+        <div className="border-t border-white/10 pt-3 mt-1">
+          <LanguageToggle isDark={isDarkCanvas || scrolled} className="justify-center py-2" />
+        </div>
       </div>
     </div>
     </>

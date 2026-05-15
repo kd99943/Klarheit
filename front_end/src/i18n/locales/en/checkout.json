@@ -40,5 +40,7 @@
   "selectProductError": "Select a product before submitting checkout.",
   "prescriptionNumberError": "Prescription values must all be valid numbers.",
   "checkoutFailed": "Checkout failed.",
-  "sessionExpired": "Your session expired before checkout completed. Sign in again to submit this order."
+  "sessionExpired": "Your session expired before checkout completed. Sign in again to submit this order.",
+  "manifest.noProductSelected": "No product selected. Return to the",
+  "manifest.collectionLink": "collection and choose a frame first."
 }

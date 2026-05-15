@@ -1,8 +1,10 @@
 import { type ReactElement, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "./AuthProvider";
 
 export function ProtectedRoute({ children, message }: { children: ReactElement; message: string }) {
+  const { t } = useTranslation("common");
   const location = useLocation();
   const { isAuthenticated, isAuthReady, requireAuth } = useAuth();
   const attemptedPathRef = useRef<string | null>(null);
@@ -25,7 +27,7 @@ export function ProtectedRoute({ children, message }: { children: ReactElement; 
     return (
       <div className="flex-1 flex items-center justify-center px-8 py-24">
         <div className="text-sm uppercase tracking-[0.2em] text-slate-400">
-          Restoring secure session...
+          {t("protected.restoringSession")}
         </div>
       </div>
     );
@@ -36,10 +38,10 @@ export function ProtectedRoute({ children, message }: { children: ReactElement; 
       <div className="flex-1 flex items-center justify-center px-8 py-24">
         <div className="max-w-xl w-full border border-slate-200 bg-white rounded-2xl p-10 text-center shadow-sm">
           <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400 font-semibold mb-4">
-            Account Required
+            {t("protected.accountRequired")}
           </p>
           <h1 className="text-3xl font-display font-light text-brand-primary mb-4">
-            Sign in to continue
+            {t("protected.signInToContinue")}
           </h1>
           <p className="text-slate-500 font-light leading-relaxed">
             {message}

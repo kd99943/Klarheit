@@ -2,12 +2,13 @@
 import { useEffect, useState } from "react";
 import { ChevronRight, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../auth/AuthProvider";
 import { useProducts } from "../hooks/useProducts";
 import { useLensOptions } from "../hooks/useLensOptions";
 import { Button } from "../components/ui/Button";
 import { FormField } from "../components/ui/FormField";
-import { cn } from "../lib/utils";
+import { cn, formatPrice } from "../lib/utils";
 import { PageIntro } from "../components/ui/PageIntro";
 import { SectionCard } from "../components/ui/SectionCard";
 
@@ -56,6 +57,7 @@ function validatePrescription(form: PrescriptionForm): PrescriptionErrors {
 
 export function ConfigLab() {
   const navigate = useNavigate();
+  const { t } = useTranslation("config-lab");
   const { products } = useProducts();
   const { options: lensOptions, isLoading: isLoadingLens } = useLensOptions();
 
@@ -69,9 +71,9 @@ export function ConfigLab() {
   const selectedProduct = products[0] ?? null;
 
   const steps = [
-    { id: 1 as Step, label: "Prescription", description: "Sphere, cylinder, axis" },
-    { id: 2 as Step, label: "Surface", description: "Coatings and lens behavior" },
-    { id: 3 as Step, label: "Review", description: "Summary before order" },
+    { id: 1 as Step, label: t("steps.prescription.label"), description: t("steps.prescription.description") },
+    { id: 2 as Step, label: t("steps.surface.label"), description: t("steps.surface.description") },
+    { id: 3 as Step, label: t("steps.review.label"), description: t("steps.review.description") },
   ];
 
   useEffect(() => {
@@ -169,12 +171,12 @@ export function ConfigLab() {
       <div className="flex-1 flex flex-col overflow-y-auto w-full">
         <div className="p-5 sm:p-8 lg:p-12 pb-4">
           <PageIntro
-            eyebrow="Swiss Precision Customization Interface"
-            title="Config Lab"
-            description="Tune prescription values, select the surface stack, and review the optical build before moving to secure checkout."
+            eyebrow={t("eyebrow")}
+            title={t("title")}
+            description={t("description")}
             actions={
               <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                <p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-slate-400">Engine</p>
+                <p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-slate-400">{t("engine")}</p>
                 <p className="mt-2 text-2xl font-display font-medium text-brand-primary">v2.4</p>
               </div>
             }
@@ -202,9 +204,9 @@ export function ConfigLab() {
           <div className="lg:col-span-8 flex flex-col gap-8">
             {activeStep === 1 && (
               <SectionCard
-                eyebrow="Step 01"
-                title="Optometric Prescription"
-                description="Enter your prescription values. All fields are validated against optical standards."
+                eyebrow={t("step1.eyebrow")}
+                title={t("step1.title")}
+                description={t("step1.description")}
               >
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                   {(["sphOd", "sphOs", "cylOd", "cylOs", "axisOd", "axisOs", "pd"] as const).map((field) => (
@@ -217,7 +219,7 @@ export function ConfigLab() {
                         max={String(PRESCRIPTION_RANGES[field].max)}
                         value={prescription[field]}
                         onChange={(e) => handlePrescriptionChange(field, e.target.value)}
-                        hint={field === "pd" ? "Pupillary distance in mm" : undefined}
+                        hint={field === "pd" ? t("step1.pdHint") : undefined}
                       />
                       {errors[field] && (
                         <p className="text-xs text-red-500 mt-1">{errors[field]}</p>
@@ -230,17 +232,17 @@ export function ConfigLab() {
 
             {activeStep === 2 && (
               <SectionCard
-                eyebrow="Step 02"
-                title="Surface Details"
-                description="Choose lens type and coatings from the available options."
+                eyebrow={t("step2.eyebrow")}
+                title={t("step2.title")}
+                description={t("step2.description")}
               >
                 {isLoadingLens ? (
-                  <p className="text-sm text-slate-500">Loading lens options...</p>
+                  <p className="text-sm text-slate-500">{t("step2.loadingLens")}</p>
                 ) : (
                   <div className="flex flex-col gap-6">
                     {lensOptionsByCategory.LENS.length > 0 && (
                       <div>
-                        <p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-slate-400 mb-3">Lens Type</p>
+                        <p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-slate-400 mb-3">{t("step2.lensType")}</p>
                         {lensOptionsByCategory.LENS.map((option) => (
                           <div
                             key={option.id}
@@ -257,7 +259,7 @@ export function ConfigLab() {
                               <p className="text-xs text-slate-500 mt-1">{option.description}</p>
                             </div>
                             <div className="flex items-center gap-3">
-                              <span className="text-sm font-mono text-slate-600">${option.additionalPrice.toFixed(2)}</span>
+                              <span className="text-sm font-mono text-slate-600">{formatPrice(option.additionalPrice)}</span>
                               <div className={cn(
                                 "w-5 h-5 rounded-full border bg-white transition-all",
                                 selectedLensTypes.includes(option.type) ? "border-[5px] border-brand-primary" : "border border-slate-300"
@@ -269,7 +271,7 @@ export function ConfigLab() {
                     )}
                     {lensOptionsByCategory.COATING.length > 0 && (
                       <div>
-                        <p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-slate-400 mb-3">Coatings</p>
+                        <p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-slate-400 mb-3">{t("step2.coatings")}</p>
                         {lensOptionsByCategory.COATING.map((option) => (
                           <div
                             key={option.id}
@@ -286,7 +288,7 @@ export function ConfigLab() {
                               <p className="text-xs text-slate-500 mt-1">{option.description}</p>
                             </div>
                             <div className="flex items-center gap-3">
-                              <span className="text-sm font-mono text-slate-600">${option.additionalPrice.toFixed(2)}</span>
+                              <span className="text-sm font-mono text-slate-600">{formatPrice(option.additionalPrice)}</span>
                               <div className={cn(
                                 "w-5 h-5 rounded-full border bg-white transition-all",
                                 selectedLensTypes.includes(option.type) ? "border-[5px] border-brand-primary" : "border border-slate-300"
@@ -303,13 +305,13 @@ export function ConfigLab() {
 
             {activeStep === 3 && (
               <SectionCard
-                eyebrow="Step 03"
-                title="Review & Confirm"
-                description="Verify your configuration before proceeding to checkout."
+                eyebrow={t("step3.eyebrow")}
+                title={t("step3.title")}
+                description={t("step3.description")}
               >
                 <div className="flex flex-col gap-6">
                   <div>
-                    <p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-slate-400 mb-3">Prescription</p>
+                    <p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-slate-400 mb-3">{t("step3.prescription")}</p>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                       {(["sphOd", "sphOs", "cylOd", "cylOs", "axisOd", "axisOs", "pd"] as const).map((field) => (
                         <div key={field} className="rounded-xl bg-slate-50 px-4 py-3">
@@ -320,12 +322,12 @@ export function ConfigLab() {
                     </div>
                   </div>
                   <div>
-                    <p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-slate-400 mb-3">Selected Options</p>
+                    <p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-slate-400 mb-3">{t("step3.selectedOptions")}</p>
                     <div className="flex flex-col gap-2">
                       {lensOptions.filter((o) => selectedLensTypes.includes(o.type)).map((option) => (
                         <div key={option.id} className="flex justify-between items-center rounded-xl bg-slate-50 px-4 py-3">
                           <span className="text-sm font-medium text-brand-primary">{option.label}</span>
-                          <span className="text-sm font-mono text-slate-600">${option.additionalPrice.toFixed(2)}</span>
+                          <span className="text-sm font-mono text-slate-600">{formatPrice(option.additionalPrice)}</span>
                         </div>
                       ))}
                     </div>
@@ -344,30 +346,30 @@ export function ConfigLab() {
                     <h2 className="text-2xl font-display font-medium mb-1 tracking-wide">{selectedProduct?.name ?? "AERO X1"}</h2>
                     <p className="text-[10px] text-brand-cyan/80 uppercase tracking-widest font-semibold mt-2">{selectedProduct?.material ?? "Titanium"}</p>
                   </div>
-                  <div className="bg-white/10 px-2 py-1 rounded text-[9px] font-mono tracking-widest border border-white/20">PREMIUM</div>
+                  <div className="bg-white/10 px-2 py-1 rounded text-[9px] font-mono tracking-widest border border-white/20">{t("summary.premium")}</div>
                 </div>
                 <ul className="space-y-6 text-sm">
                   <li className="flex flex-col gap-1 border-b border-white/10 pb-4">
-                    <span className="text-white/50 text-xs font-medium">Frame</span>
+                    <span className="text-white/50 text-xs font-medium">{t("summary.frame")}</span>
                     <span className="font-semibold tracking-wide">{selectedProduct?.name ?? "—"}</span>
                   </li>
                   <li className="flex flex-col gap-1 border-b border-white/10 pb-4">
-                    <span className="text-white/50 text-xs font-medium">Selected Options</span>
+                    <span className="text-white/50 text-xs font-medium">{t("summary.selectedOptions")}</span>
                     <span className="font-semibold tracking-wide">{selectedLensTypes.length} option{selectedLensTypes.length !== 1 ? "s" : ""}</span>
                   </li>
                 </ul>
                 <div className="mt-8 rounded-2xl bg-white/8 px-4 py-4 text-sm text-slate-200">
                   <div className="flex items-center gap-2 text-brand-cyan">
                     <Sparkles className="w-4 h-4" />
-                    <span className="text-[10px] uppercase tracking-[0.2em] font-semibold">Active Stage</span>
+                    <span className="text-[10px] uppercase tracking-[0.2em] font-semibold">{t("summary.activeStage")}</span>
                   </div>
                   <p className="mt-2">{steps.find((step) => step.id === activeStep)?.description}</p>
                 </div>
               </div>
               <div className="mt-12 relative z-10">
                 <div className="flex justify-between items-end mb-8 font-display">
-                  <span className="text-sm text-white/60 font-medium">Total Value</span>
-                  <span className="text-3xl font-light tracking-tight text-white">${totalPrice.toFixed(2)}</span>
+                  <span className="text-sm text-white/60 font-medium">{t("summary.totalValue")}</span>
+                  <span className="text-3xl font-light tracking-tight text-white">{formatPrice(totalPrice)}</span>
                 </div>
                 <div className="flex flex-col gap-3">
                   {activeStep < 3 ? (
@@ -376,7 +378,7 @@ export function ConfigLab() {
                       onClick={handleNextStep}
                       className="w-full bg-white text-brand-primary py-4 text-[10px] font-bold uppercase tracking-[0.2em] hover:bg-slate-100 transition-colors rounded-sm flex items-center justify-center gap-2"
                     >
-                      Next Step
+                      {t("nextStep")}
                       <ChevronRight className="w-4 h-4" />
                     </button>
                   ) : (
@@ -385,7 +387,7 @@ export function ConfigLab() {
                       onClick={handleInitializeOrder}
                       className="w-full bg-white text-brand-primary py-4 text-[10px] font-bold uppercase tracking-[0.2em] hover:bg-slate-100 transition-colors rounded-sm flex items-center justify-center gap-2"
                     >
-                      Initialize Order
+                      {t("initializeOrder")}
                       <ChevronRight className="w-4 h-4" />
                     </button>
                   )}

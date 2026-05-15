@@ -1,18 +1,20 @@
 import { useState } from "react";
 import { Camera, CheckCircle, Repeat, Share2, SlidersHorizontal, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { cn } from "../lib/utils";
 import { GlassPanel } from "../components/ui/GlassPanel";
 import { Button } from "../components/ui/Button";
 
 export function ARVirtualStudio() {
+  const { t } = useTranslation("ar-studio");
   const [activeColor, setActiveColor] = useState<"black" | "titanium" | "rose">("black");
   const [captureState, setCaptureState] = useState<"idle" | "captured">("idle");
 
   const colorMeta = {
-    black: { label: "Matte Black", lens: "Onyx AR", fit: "Urban contrast" },
-    titanium: { label: "Titanium", lens: "Neutral Clear", fit: "Studio neutral" },
-    rose: { label: "Rose Gold", lens: "Warm HEV", fit: "Soft daylight" },
+    black: { label: t("color.matteBlack"), lens: "Onyx AR", fit: t("fit.urbanContrast") },
+    titanium: { label: t("color.titanium"), lens: "Neutral Clear", fit: t("fit.studioNeutral") },
+    rose: { label: t("color.roseGold"), lens: "Warm HEV", fit: t("fit.softDaylight") },
   } as const;
 
   return (
@@ -46,17 +48,17 @@ export function ARVirtualStudio() {
         </div>
 
         <div className="absolute top-[35%] left-[10%] lg:left-[20%] hidden md:flex flex-col gap-2 text-[9px] text-brand-cyan font-mono tracking-widest uppercase opacity-80 border-l border-brand-cyan/30 pl-3">
-          <span>Face Mesh <span className="text-white ml-2">Active</span></span>
-          <span>Pupillary Dist <span className="text-white ml-2">62mm</span></span>
-          <span>Tilt Angle <span className="text-white ml-2">2.4°</span></span>
-          <span>Depth Z <span className="text-white ml-2">-14.2cm</span></span>
+          <span>{t("faceMesh")} <span className="text-white ml-2">{t("active")}</span></span>
+          <span>{t("pupillaryDist")} <span className="text-white ml-2">62mm</span></span>
+          <span>{t("tiltAngle")} <span className="text-white ml-2">2.4°</span></span>
+          <span>{t("depthZ")} <span className="text-white ml-2">-14.2cm</span></span>
         </div>
 
         <div className="absolute bottom-[40%] right-[10%] lg:right-[20%] hidden md:flex flex-col gap-2 text-[9px] text-brand-cyan font-mono tracking-widest uppercase opacity-80 border-r border-brand-cyan/30 pr-3 items-end">
-          <span>Lens <span className="text-white ml-2">{colorMeta[activeColor].lens}</span></span>
-          <span>Coating <span className="text-white ml-2">{colorMeta[activeColor].label}</span></span>
-          <span>Fit <span className="text-white ml-2">{colorMeta[activeColor].fit}</span></span>
-          <span>Confidence <span className="text-emerald-400 ml-2">98.2%</span></span>
+          <span>{t("lens")} <span className="text-white ml-2">{colorMeta[activeColor].lens}</span></span>
+          <span>{t("coating")} <span className="text-white ml-2">{colorMeta[activeColor].label}</span></span>
+          <span>{t("fit")} <span className="text-white ml-2">{colorMeta[activeColor].fit}</span></span>
+          <span>{t("confidence")} <span className="text-emerald-400 ml-2">98.2%</span></span>
         </div>
       </div>
 
@@ -65,15 +67,15 @@ export function ARVirtualStudio() {
           <GlassPanel className="pointer-events-auto max-w-sm px-5 py-4">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-[10px] uppercase tracking-[0.22em] text-brand-cyan font-semibold">Studio Status</p>
-                <h1 className="mt-2 text-xl font-display font-medium text-white">Live Face Mapping</h1>
-                <p className="mt-2 text-sm text-slate-300 font-light">Front camera aligned. Refine finish selection, then move into Config Lab for lens setup.</p>
+                <p className="text-[10px] uppercase tracking-[0.22em] text-brand-cyan font-semibold">{t("studioStatus")}</p>
+                <h1 className="mt-2 text-xl font-display font-medium text-white">{t("liveFaceMapping")}</h1>
+                <p className="mt-2 text-sm text-slate-300 font-light">{t("frontCameraAligned")}</p>
               </div>
               <Sparkles className="w-5 h-5 text-brand-cyan shrink-0" />
             </div>
           </GlassPanel>
           <GlassPanel className="pointer-events-auto hidden lg:block px-5 py-4">
-            <p className="text-[10px] uppercase tracking-[0.22em] text-slate-400 font-semibold">Current Finish</p>
+            <p className="text-[10px] uppercase tracking-[0.22em] text-slate-400 font-semibold">{t("currentFinish")}</p>
             <p className="mt-2 text-sm text-white">{colorMeta[activeColor].label}</p>
             <p className="mt-1 text-xs text-slate-400">{colorMeta[activeColor].fit}</p>
           </GlassPanel>
@@ -86,12 +88,12 @@ export function ARVirtualStudio() {
                 <h2 className="font-display text-white text-xl md:text-2xl tracking-wide font-light">Aero X1</h2>
                 <p className="text-[10px] text-slate-400 mt-2 uppercase font-semibold tracking-widest flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                  Live AR Try-On Active
+                  {t("liveArTryOnActive")}
                 </p>
               </div>
               <div className="flex items-center gap-2 border border-brand-cyan/30 bg-brand-cyan/10 px-3 py-1.5 rounded self-start">
                 <span className="w-1.5 h-1.5 rounded-full bg-brand-cyan"></span>
-                <span className="font-mono text-[9px] text-brand-cyan tracking-widest uppercase mt-[1px]">Mesh Tracking</span>
+                <span className="font-mono text-[9px] text-brand-cyan tracking-widest uppercase mt-[1px]">{t("meshTracking")}</span>
               </div>
             </div>
 
@@ -134,13 +136,13 @@ export function ARVirtualStudio() {
 
             <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_220px]">
               <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-sm text-slate-300">
-                <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-semibold">Live Readout</p>
-                <p className="mt-2">Lens profile: {colorMeta[activeColor].lens}. Capture a still or continue to prescription configuration.</p>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-semibold">{t("liveReadout")}</p>
+                <p className="mt-2">{t("lensProfile")}: {colorMeta[activeColor].lens}. {t("captureInstruction")}</p>
               </div>
               <Link to="/config-lab" className="w-full">
                 <Button variant="outline-dark" className="w-full">
                   <SlidersHorizontal className="w-4 h-4" />
-                  Configure Precision Lenses
+                  {t("configurePrecisionLenses")}
                 </Button>
               </Link>
             </div>
@@ -163,7 +165,7 @@ export function ARVirtualStudio() {
           </div>
           {captureState === "captured" ? (
             <p className="mt-3 text-[10px] uppercase tracking-[0.2em] text-brand-cyan font-semibold pointer-events-auto">
-              Still captured. Share export preview coming from connected device workflow.
+              {t("stillCaptured")}
             </p>
           ) : null}
         </div>

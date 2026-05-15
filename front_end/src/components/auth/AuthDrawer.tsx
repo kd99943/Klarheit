@@ -2,6 +2,7 @@ import { type FormEvent, useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useAuth } from "../../auth/AuthProvider";
+import { useTranslation } from "react-i18next";
 
 type SignInForm = {
   email: string;
@@ -39,6 +40,7 @@ export function AuthDrawer() {
     authMessage,
     isSubmittingAuth,
   } = useAuth();
+  const { t } = useTranslation("common");
 
   const [signInForm, setSignInForm] = useState<SignInForm>(EMPTY_SIGN_IN_FORM);
   const [registerForm, setRegisterForm] = useState<RegisterForm>(EMPTY_REGISTER_FORM);
@@ -75,7 +77,7 @@ export function AuthDrawer() {
         )}
       >
         <div className="flex justify-between items-center mb-10">
-          <h2 className="text-xl font-display tracking-tight text-brand-primary">Authentication</h2>
+          <h2 className="text-xl font-display tracking-tight text-brand-primary">{t("auth.authentication")}</h2>
           <button
             onClick={closeAuthModal}
             className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors text-slate-500"
@@ -93,7 +95,7 @@ export function AuthDrawer() {
               authMode === "signin" ? "bg-white text-brand-primary shadow-sm" : "text-slate-500"
             )}
           >
-            Sign In
+            {t("auth.signIn")}
           </button>
           <button
             type="button"
@@ -103,16 +105,16 @@ export function AuthDrawer() {
               authMode === "register" ? "bg-white text-brand-primary shadow-sm" : "text-slate-500"
             )}
           >
-            Register
+            {t("auth.register")}
           </button>
         </div>
 
         <div className="mb-8">
           <h3 className="text-3xl font-display font-light text-brand-primary mb-3">
-            {authMode === "signin" ? "Welcome Back" : "Create Account"}
+            {authMode === "signin" ? t("auth.welcomeBack") : t("auth.createAccount")}
           </h3>
           <p className="text-sm text-slate-500 font-light">
-            {authMessage ?? "Sign in to save your prescription and continue your custom order."}
+            {authMessage ?? t("auth.defaultMessage")}
           </p>
         </div>
 
@@ -126,7 +128,7 @@ export function AuthDrawer() {
           <form className="flex flex-col gap-6" onSubmit={handleSignInSubmit}>
             <div className="flex flex-col gap-2 relative group">
               <label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest group-focus-within:text-brand-primary transition-colors">
-                Email Address
+                {t("auth.emailAddress")}
               </label>
               <input
                 value={signInForm.email}
@@ -140,7 +142,7 @@ export function AuthDrawer() {
 
             <div className="flex flex-col gap-2 relative group mb-4">
               <label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest group-focus-within:text-brand-primary transition-colors">
-                Password
+                {t("auth.password")}
               </label>
               <input
                 value={signInForm.password}
@@ -156,7 +158,7 @@ export function AuthDrawer() {
               disabled={isSubmittingAuth}
               className="w-full bg-brand-primary text-white py-4 text-xs font-bold uppercase tracking-[0.2em] hover:bg-brand-primary/90 transition-colors rounded-sm shadow-[0_10px_20px_rgba(11,32,70,0.15)] flex justify-center items-center gap-2 disabled:opacity-70"
             >
-              {isSubmittingAuth ? "Signing In..." : "Continue"}
+              {isSubmittingAuth ? t("auth.signingIn") : t("auth.continue")}
             </button>
           </form>
         ) : (
@@ -164,7 +166,7 @@ export function AuthDrawer() {
             <div className="grid grid-cols-2 gap-4">
               <div className="flex flex-col gap-2 relative group">
                 <label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest group-focus-within:text-brand-primary transition-colors">
-                  First Name
+                  {t("auth.firstName")}
                 </label>
                 <input
                   value={registerForm.firstName}
@@ -176,7 +178,7 @@ export function AuthDrawer() {
               </div>
               <div className="flex flex-col gap-2 relative group">
                 <label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest group-focus-within:text-brand-primary transition-colors">
-                  Last Name
+                  {t("auth.lastName")}
                 </label>
                 <input
                   value={registerForm.lastName}
@@ -189,7 +191,7 @@ export function AuthDrawer() {
             </div>
             <div className="flex flex-col gap-2 relative group">
               <label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest group-focus-within:text-brand-primary transition-colors">
-                Email Address
+                {t("auth.emailAddress")}
               </label>
               <input
                 value={registerForm.email}
@@ -202,7 +204,7 @@ export function AuthDrawer() {
             </div>
             <div className="flex flex-col gap-2 relative group mb-4">
               <label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest group-focus-within:text-brand-primary transition-colors">
-                Password
+                {t("auth.password")}
               </label>
               <input
                 value={registerForm.password}
@@ -210,7 +212,7 @@ export function AuthDrawer() {
                 type="password"
                 required
                 minLength={8}
-                placeholder="Minimum 8 characters"
+                placeholder={t("auth.minimumChars")}
                 className="w-full bg-transparent border-0 border-b border-slate-300 py-3 px-0 focus:ring-0 focus:border-brand-primary outline-none transition-colors text-lg font-medium text-brand-primary rounded-none placeholder:text-slate-300"
               />
             </div>
@@ -219,7 +221,7 @@ export function AuthDrawer() {
               disabled={isSubmittingAuth}
               className="w-full bg-brand-primary text-white py-4 text-xs font-bold uppercase tracking-[0.2em] hover:bg-brand-primary/90 transition-colors rounded-sm shadow-[0_10px_20px_rgba(11,32,70,0.15)] flex justify-center items-center gap-2 disabled:opacity-70"
             >
-              {isSubmittingAuth ? "Creating Account..." : "Create Account"}
+              {isSubmittingAuth ? t("auth.creatingAccount") : t("auth.createAccount")}
             </button>
           </form>
         )}

@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { ArrowRight, RefreshCw } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { useProducts } from "../hooks/useProducts";
@@ -6,14 +7,10 @@ import { type Product } from "../services/api";
 import { Button } from "../components/ui/Button";
 import { PageIntro } from "../components/ui/PageIntro";
 import { SectionCard } from "../components/ui/SectionCard";
-
-const currencyFormatter = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  maximumFractionDigits: 0,
-});
+import { formatPrice } from "../lib/utils";
 
 export function CollectionsPage() {
+  const { t } = useTranslation("collections");
   const navigate = useNavigate();
   const { requireAuth } = useAuth();
   const { products, isLoading, error, retry } = useProducts();
@@ -21,7 +18,7 @@ export function CollectionsPage() {
   function handleProductSelect(product: Product) {
     if (requireAuth(
       { path: "/checkout", state: { product } },
-      "Sign in or create your account to continue with this frame."
+      t("signInMessage")
     )) {
       navigate("/checkout", { state: { product } });
     }
@@ -30,12 +27,12 @@ export function CollectionsPage() {
   return (
     <div className="flex flex-col w-full px-5 sm:px-8 lg:px-12 max-w-[1440px] mx-auto py-12 sm:py-16 gap-12">
       <PageIntro
-        eyebrow="Optical Catalog"
-        title="The Inaugural Collection"
-        description="Each silhouette is tuned for lightweight endurance, precise balance, and prescription-ready lens geometry. Select a frame to move directly into checkout."
+        eyebrow={t("eyebrow")}
+        title={t("title")}
+        description={t("description")}
         actions={
           <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left shadow-sm">
-            <p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-slate-400">Available Builds</p>
+            <p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-slate-400">{t("availableBuilds")}</p>
             <p className="mt-2 text-2xl font-display font-medium text-brand-primary">{products.length || "--"}</p>
           </div>
         }
@@ -43,7 +40,7 @@ export function CollectionsPage() {
 
       {isLoading ? (
         <div className="max-w-5xl mx-auto w-full text-center py-20 text-sm uppercase tracking-[0.2em] text-slate-400">
-          Loading catalog...
+          {t("loadingCatalog")}
         </div>
       ) : null}
 
@@ -52,7 +49,7 @@ export function CollectionsPage() {
           <p className="text-sm text-red-700">{error}</p>
           <Button type="button" variant="outline-light" className="self-start" onClick={retry}>
             <RefreshCw className="w-4 h-4" />
-            Retry
+            {t("retry")}
           </Button>
         </SectionCard>
       ) : null}
@@ -81,12 +78,12 @@ export function CollectionsPage() {
               <div className="mt-8 flex flex-col gap-2">
                 <div className="flex justify-between items-baseline">
                   <h2 className="text-xl font-display font-medium tracking-wide text-brand-primary">{item.name}</h2>
-                  <span className="text-base text-slate-500">{currencyFormatter.format(item.basePrice)}</span>
+                  <span className="text-base text-slate-500">{formatPrice(item.basePrice)}</span>
                 </div>
                 <div className="flex items-center justify-between gap-4">
-                  <p className="text-[10px] uppercase font-semibold tracking-widest text-slate-400">Prescription-ready chassis</p>
+                  <p className="text-[10px] uppercase font-semibold tracking-widest text-slate-400">{t("prescriptionReady")}</p>
                   <span className="inline-flex items-center gap-2 text-xs text-brand-primary">
-                    Select
+                    {t("select")}
                     <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
                   </span>
                 </div>
@@ -96,19 +93,19 @@ export function CollectionsPage() {
         ))}
         </div>
         <SectionCard
-          title="Selection Notes"
-          eyebrow="Before Checkout"
-          description="Current checkout accepts a frame choice and applies the standard lens package. Use Config Lab first if you want to review prescription values before payment."
+          title={t("selectionNotes.title")}
+          eyebrow={t("selectionNotes.eyebrow")}
+          description={t("selectionNotes.description")}
           className="xl:sticky xl:top-28"
         >
           <div className="space-y-4 text-sm text-slate-600">
             <div className="rounded-2xl bg-surface-muted px-4 py-4">
-              <p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-slate-400">Included</p>
-              <p className="mt-2">High-index custom lenses, AR coating, and HEV filter are bundled at checkout.</p>
+              <p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-slate-400">{t("selectionNotes.included.label")}</p>
+              <p className="mt-2">{t("selectionNotes.included.description")}</p>
             </div>
             <div className="rounded-2xl border border-slate-200 px-4 py-4">
-              <p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-slate-400">Mobile Flow</p>
-              <p className="mt-2">Cards stay tap-sized and the selection CTA remains visible without hover-dependent cues.</p>
+              <p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-slate-400">{t("selectionNotes.mobileFlow.label")}</p>
+              <p className="mt-2">{t("selectionNotes.mobileFlow.description")}</p>
             </div>
           </div>
         </SectionCard>

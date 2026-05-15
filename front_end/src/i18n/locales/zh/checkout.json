@@ -40,5 +40,7 @@
   "selectProductError": "提交结算前请先选择产品。",
   "prescriptionNumberError": "处方参数必须均为有效数字。",
   "checkoutFailed": "结算失败。",
-  "sessionExpired": "结算完成前会话已过期。请重新登录以提交此订单。"
+  "sessionExpired": "结算完成前会话已过期。请重新登录以提交此订单。",
+  "manifest.noProductSelected": "未选择产品。请返回",
+  "manifest.collectionLink": "系列页面并选择镜框。"
 }

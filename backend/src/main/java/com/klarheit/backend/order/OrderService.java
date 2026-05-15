@@ -2,6 +2,7 @@ package com.klarheit.backend.order;
 
 import com.klarheit.backend.auth.UserAccount;
 import com.klarheit.backend.auth.UserAccountRepository;
+import com.klarheit.backend.email.EmailService;
 import com.klarheit.backend.lens.LensOption;
 import com.klarheit.backend.lens.LensOptionRepository;
 import com.klarheit.backend.order.dto.OrderRequestDTO;
@@ -32,15 +33,17 @@ public class OrderService {
     private final PrescriptionRepository prescriptionRepository;
     private final OrderRepository orderRepository;
     private final UserAccountRepository userAccountRepository;
+    private final EmailService emailService;
 
     public OrderService(ProductRepository productRepository, LensOptionRepository lensOptionRepository,
                         PrescriptionRepository prescriptionRepository, OrderRepository orderRepository,
-                        UserAccountRepository userAccountRepository) {
+                        UserAccountRepository userAccountRepository, EmailService emailService) {
         this.productRepository = productRepository;
         this.lensOptionRepository = lensOptionRepository;
         this.prescriptionRepository = prescriptionRepository;
         this.orderRepository = orderRepository;
         this.userAccountRepository = userAccountRepository;
+        this.emailService = emailService;
     }
 
     @Transactional
@@ -92,6 +95,12 @@ public class OrderService {
                 .build());
 
         log.info("Order created: {} for user: {} amount: {}", order.getOrderNumber(), user.getEmail(), totalAmount);
+
+        emailService.sendOrderConfirmation(
+                user.getEmail(),
+                order.getOrderNumber(),
+                product.getName(),
+                totalAmount.toPlainString());
 
         return new OrderResponseDTO(
                 order.getOrderNumber(),

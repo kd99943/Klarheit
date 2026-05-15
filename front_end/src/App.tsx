@@ -14,6 +14,7 @@ import { ARVirtualStudio } from "./pages/ARVirtualStudio";
 import { ConfigLab } from "./pages/ConfigLab";
 import { Checkout } from "./pages/Checkout";
 import { MyAccountPage } from "./pages/MyAccountPage";
+import { OrderConfirmationPage } from "./pages/OrderConfirmationPage";
 
 export default function App() {
   return (
@@ -46,6 +47,14 @@ export default function App() {
                 element={
                   <ProtectedRoute message="Sign in to access your Klarheit account workspace.">
                     <MyAccountPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="order-confirmation"
+                element={
+                  <ProtectedRoute message="Sign in to view your order confirmation.">
+                    <OrderConfirmationPage />
                   </ProtectedRoute>
                 }
               />

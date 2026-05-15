@@ -28,6 +28,9 @@ app:
   jwt:
     secret: ${APP_JWT_SECRET}
     expiration-millis: ${APP_JWT_EXPIRATION_MILLIS:86400000}
+  resend:
+    api-key: ${RESEND_API_KEY:}
+    from-email: ${RESEND_FROM_EMAIL:orders@klarheit.com}
 
 server:
   port: ${SERVER_PORT:8081}

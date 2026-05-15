@@ -1,0 +1,18 @@
+{
+  "eyebrow": "Optical Catalog",
+  "title": "The Inaugural Collection",
+  "description": "Each silhouette is tuned for lightweight endurance, precise balance, and prescription-ready lens geometry. Select a frame to move directly into checkout.",
+  "availableBuilds": "Available Builds",
+  "loadingCatalog": "Loading catalog...",
+  "retry": "Retry",
+  "prescriptionReady": "Prescription-ready chassis",
+  "select": "Select",
+  "selectionNotes.title": "Selection Notes",
+  "selectionNotes.eyebrow": "Before Checkout",
+  "selectionNotes.description": "Current checkout accepts a frame choice and applies the standard lens package. Use Config Lab first if you want to review prescription values before payment.",
+  "selectionNotes.included.label": "Included",
+  "selectionNotes.included.description": "High-index custom lenses, AR coating, and HEV filter are bundled at checkout.",
+  "selectionNotes.mobileFlow.label": "Mobile Flow",
+  "selectionNotes.mobileFlow.description": "Cards stay tap-sized and the selection CTA remains visible without hover-dependent cues.",
+  "signInMessage": "Sign in or create your account to continue with this frame."
+}

@@ -1,0 +1,18 @@
+{
+  "eyebrow": "光学目录",
+  "title": "首发系列",
+  "description": "每一款造型都经过轻量化耐久性、精确平衡和处方镜片几何结构的调校。选择镜架直接进入结算。",
+  "availableBuilds": "可选配置",
+  "loadingCatalog": "加载目录中...",
+  "retry": "重试",
+  "prescriptionReady": "处方就绪底盘",
+  "select": "选择",
+  "selectionNotes.title": "选购说明",
+  "selectionNotes.eyebrow": "结算前",
+  "selectionNotes.description": "当前结算接受镜架选择并应用标准镜片套餐。如需在付款前查看处方参数，请先使用配置工坊。",
+  "selectionNotes.included.label": "包含内容",
+  "selectionNotes.included.description": "高折射率定制镜片、AR 镀膜和 HEV 过滤器均在结算时捆绑提供。",
+  "selectionNotes.mobileFlow.label": "移动端流程",
+  "selectionNotes.mobileFlow.description": "卡片保持触摸友好尺寸，选择按钮无需悬停提示即可保持可见。",
+  "signInMessage": "登录或创建账户以继续选择此镜架。"
+}

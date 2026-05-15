@@ -6,6 +6,8 @@ import com.klarheit.backend.lens.LensOption;
 import com.klarheit.backend.lens.LensOptionRepository;
 import com.klarheit.backend.order.dto.OrderRequestDTO;
 import com.klarheit.backend.order.dto.OrderResponseDTO;
+import com.klarheit.backend.order.dto.OrderSummaryDTO;
+import java.util.Arrays;
 import com.klarheit.backend.prescription.Prescription;
 import com.klarheit.backend.prescription.PrescriptionRepository;
 import com.klarheit.backend.product.Product;
@@ -97,6 +99,21 @@ public class OrderService {
                 order.getTotalAmount(),
                 product.getName(),
                 normalizedLensTypes);
+    }
+
+    @Transactional(readOnly = true)
+    public List<OrderSummaryDTO> getMyOrders(String authenticatedEmail) {
+        return orderRepository.findByUserEmailOrderByCreatedAtDesc(authenticatedEmail)
+                .stream()
+                .map(order -> new OrderSummaryDTO(
+                        order.getOrderNumber(),
+                        order.getStatus(),
+                        order.getTotalAmount(),
+                        order.getProduct().getName(),
+                        Arrays.asList(order.getLensOptionTypes().split(",")),
+                        order.getCreatedAt()
+                ))
+                .toList();
     }
 
     private List<String> normalizeLensTypes(List<String> lensOptionTypes) {

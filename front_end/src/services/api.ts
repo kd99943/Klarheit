@@ -58,6 +58,25 @@ export interface OrderResponse {
   lensOptionTypes: string[];
 }
 
+export interface OrderSummary {
+  orderNumber: string;
+  status: string;
+  totalAmount: number;
+  productName: string;
+  lensOptionTypes: string[];
+  createdAt: string;
+}
+
+export interface LensOption {
+  id: number;
+  type: string;
+  category: string;
+  label: string;
+  description: string;
+  indexValue: number;
+  additionalPrice: number;
+}
+
 interface ApiErrorPayload {
   status?: number;
   error?: string;
@@ -167,6 +186,28 @@ export function checkoutOrder(payload: OrderRequest): Promise<OrderResponse> {
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+export function fetchMyOrders(): Promise<OrderSummary[]> {
+  return request<OrderSummary[]>("/orders/my");
+}
+
+export function fetchLensOptions(): Promise<LensOption[]> {
+  return request<LensOption[]>("/lens-options");
+}
+
+export function fetchLatestPrescription(): Promise<{
+  id: number;
+  userEmail: string;
+  sphOd: number;
+  sphOs: number;
+  cylOd: number;
+  cylOs: number;
+  axisOd: number;
+  axisOs: number;
+  pd: number;
+} | null> {
+  return request("/prescriptions/me/latest");
 }
 
 export function getStoredAuthToken(): string | null {

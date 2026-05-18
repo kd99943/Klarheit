@@ -6,7 +6,7 @@ function WorkingChild() {
   return <div>Working content</div>;
 }
 
-function ThrowingChild() {
+function ThrowingChild(): React.ReactNode {
   throw new Error("Test error");
 }
 

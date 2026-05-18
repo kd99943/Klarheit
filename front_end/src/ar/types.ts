@@ -2,7 +2,7 @@ export type CameraStatus = "idle" | "requesting" | "ready" | "denied" | "unsuppo
 
 export type TrackingStatus = "initializing" | "tracking" | "no-face" | "low-confidence" | "error";
 
-export type ArExperienceStatus =
+export type ARExperienceStatus =
   | "initializing"
   | "permission-denied"
   | "unsupported"
@@ -12,7 +12,7 @@ export type ArExperienceStatus =
   | "captured"
   | "error";
 
-export type ArFinishId = "matte-black" | "titanium" | "rose-gold";
+export type ARFinishId = "matte-black" | "titanium" | "rose-gold";
 
 export interface FaceLandmark {
   x: number;
@@ -20,15 +20,15 @@ export interface FaceLandmark {
   z?: number;
 }
 
-export interface ArTransform {
+export interface ARTransform {
   position: [number, number, number];
   rotation: [number, number, number];
   scale: [number, number, number];
   confidence: number;
 }
 
-export interface ArFrameConfig {
-  id: ArFinishId;
+export interface ARFrameConfig {
+  id: ARFinishId;
   productName: string;
   finishLabelKey: string;
   lensLabel: string;

@@ -49,17 +49,17 @@ vi.mock("three", () => {
   };
 });
 
-import { ArTryOnCanvas } from "./ArTryOnCanvas";
-import { getArFrameConfig } from "./frameCatalog";
+import { ARTryOnCanvas } from "./ARTryOnCanvas";
+import { getARFrameConfig } from "./frameCatalog";
 
-describe("ArTryOnCanvas", () => {
+describe("ARTryOnCanvas", () => {
   test("renders video and canvas layers for the AR scene", () => {
     const stream = { id: "stream-1" } as MediaStream;
 
     render(
-      <ArTryOnCanvas
+      <ARTryOnCanvas
         stream={stream}
-        frame={getArFrameConfig("matte-black")}
+        frame={getARFrameConfig("matte-black")}
         transform={null}
         onCaptureReady={vi.fn()}
       />
@@ -73,9 +73,9 @@ describe("ArTryOnCanvas", () => {
     const onCaptureReady = vi.fn();
 
     render(
-      <ArTryOnCanvas
+      <ARTryOnCanvas
         stream={{ id: "stream-1" } as MediaStream}
-        frame={getArFrameConfig("titanium")}
+        frame={getARFrameConfig("titanium")}
         transform={null}
         onCaptureReady={onCaptureReady}
       />

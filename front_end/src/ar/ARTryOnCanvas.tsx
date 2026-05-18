@@ -1,15 +1,15 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
-import type { ArFrameConfig, ArTransform } from "./types";
+import type { ARFrameConfig, ARTransform } from "./types";
 
-interface ArTryOnCanvasProps {
+interface ARTryOnCanvasProps {
   stream: MediaStream | null;
-  frame: ArFrameConfig;
-  transform: ArTransform | null;
+  frame: ARFrameConfig;
+  transform: ARTransform | null;
   onCaptureReady: (capture: (() => string | null) | null) => void;
 }
 
-function createProceduralGlasses(frame: ArFrameConfig) {
+function createProceduralGlasses(frame: ARFrameConfig) {
   const group = new THREE.Group();
   const material = new THREE.MeshStandardMaterial({ color: frame.frameColor, roughness: 0.36, metalness: 0.72 });
   const lensMaterial = new THREE.MeshPhysicalMaterial({
@@ -44,7 +44,7 @@ function createProceduralGlasses(frame: ArFrameConfig) {
   return group;
 }
 
-export function ArTryOnCanvas({ stream, frame, transform, onCaptureReady }: ArTryOnCanvasProps) {
+export function ARTryOnCanvas({ stream, frame, transform, onCaptureReady }: ARTryOnCanvasProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);

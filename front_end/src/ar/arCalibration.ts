@@ -1,4 +1,4 @@
-import type { ArTransform, FaceLandmark } from "./types";
+import type { ARTransform, FaceLandmark } from "./types";
 
 const LEFT_EYE_OUTER = 33;
 const RIGHT_EYE_OUTER = 263;
@@ -18,7 +18,7 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
-export function calculateGlassesTransform(landmarks: FaceLandmark[]): ArTransform | null {
+export function calculateGlassesTransform(landmarks: FaceLandmark[]): ARTransform | null {
   if (![LEFT_EYE_OUTER, RIGHT_EYE_OUTER, NOSE_BRIDGE, NOSE_TIP].every((index) => hasPoint(landmarks, index))) {
     return null;
   }

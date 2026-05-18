@@ -66,8 +66,8 @@ vi.mock("../ar/useFaceLandmarks", () => ({
   }),
 }));
 
-vi.mock("../ar/ArTryOnCanvas", () => ({
-  ArTryOnCanvas: () => <div data-testid="ar-try-on-canvas" />,
+vi.mock("../ar/ARTryOnCanvas", () => ({
+  ARTryOnCanvas: () => <div data-testid="ar-try-on-canvas" />,
 }));
 
 import { ARVirtualStudio } from "./ARVirtualStudio";

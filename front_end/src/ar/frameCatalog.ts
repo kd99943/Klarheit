@@ -1,6 +1,6 @@
-import type { ArFinishId, ArFrameConfig } from "./types";
+import type { ARFinishId, ARFrameConfig } from "./types";
 
-export const AR_FRAME_CATALOG: Record<ArFinishId, ArFrameConfig> = {
+export const AR_FRAME_CATALOG: Record<ARFinishId, ARFrameConfig> = {
   "matte-black": {
     id: "matte-black",
     productName: "Aero X1",
@@ -48,8 +48,8 @@ export const AR_FRAME_CATALOG: Record<ArFinishId, ArFrameConfig> = {
   },
 };
 
-export const DEFAULT_AR_FINISH: ArFinishId = "matte-black";
+export const DEFAULT_AR_FINISH: ARFinishId = "matte-black";
 
-export function getArFrameConfig(finishId: ArFinishId): ArFrameConfig {
+export function getARFrameConfig(finishId: ARFinishId): ARFrameConfig {
   return AR_FRAME_CATALOG[finishId];
 }

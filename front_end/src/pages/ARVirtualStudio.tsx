@@ -2,17 +2,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Camera, CheckCircle, Repeat, Share2, SlidersHorizontal, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ArTryOnCanvas } from "../ar/ArTryOnCanvas";
+import { ARTryOnCanvas } from "../ar/ARTryOnCanvas";
 import { calculateGlassesTransform } from "../ar/arCalibration";
-import { DEFAULT_AR_FINISH, getArFrameConfig } from "../ar/frameCatalog";
-import type { ArExperienceStatus, ArFinishId } from "../ar/types";
+import { DEFAULT_AR_FINISH, getARFrameConfig } from "../ar/frameCatalog";
+import type { ARExperienceStatus, ARFinishId } from "../ar/types";
 import { useCameraStream } from "../ar/useCameraStream";
 import { useFaceLandmarks } from "../ar/useFaceLandmarks";
 import { Button } from "../components/ui/Button";
 import { GlassPanel } from "../components/ui/GlassPanel";
 import { cn } from "../lib/utils";
 
-function resolveExperienceStatus(cameraStatus: string, trackingStatus: string, captured: boolean): ArExperienceStatus {
+function resolveExperienceStatus(cameraStatus: string, trackingStatus: string, captured: boolean): ARExperienceStatus {
   if (captured) return "captured";
   if (cameraStatus === "unsupported") return "unsupported";
   if (cameraStatus === "denied") return "permission-denied";
@@ -25,13 +25,13 @@ function resolveExperienceStatus(cameraStatus: string, trackingStatus: string, c
 
 export function ARVirtualStudio() {
   const { t } = useTranslation("ar-studio");
-  const [activeFinish, setActiveFinish] = useState<ArFinishId>(DEFAULT_AR_FINISH);
+  const [activeFinish, setActiveFinish] = useState<ARFinishId>(DEFAULT_AR_FINISH);
   const [captureMessage, setCaptureMessage] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const captureRef = useRef<(() => string | null) | null>(null);
   const camera = useCameraStream();
   const tracking = useFaceLandmarks({ videoRef, enabled: camera.status === "ready" });
-  const frame = getArFrameConfig(activeFinish);
+  const frame = getARFrameConfig(activeFinish);
   const transform = useMemo(() => (tracking.landmarks ? calculateGlassesTransform(tracking.landmarks) : null), [tracking.landmarks]);
   const experienceStatus = resolveExperienceStatus(camera.status, transform && tracking.status === "tracking" ? "tracking" : tracking.status, Boolean(captureMessage));
 
@@ -49,7 +49,7 @@ export function ARVirtualStudio() {
   return (
     <div className="relative w-full min-h-[calc(100vh-80px)] overflow-hidden bg-[#0A1121]">
       <div className="absolute inset-0 z-0">
-        <ArTryOnCanvas stream={camera.stream} frame={frame} transform={transform} onCaptureReady={(capture) => (captureRef.current = capture)} />
+        <ARTryOnCanvas stream={camera.stream} frame={frame} transform={transform} onCaptureReady={(capture) => (captureRef.current = capture)} />
       </div>
       <video ref={videoRef} className="hidden" autoPlay muted playsInline />
 
@@ -85,7 +85,7 @@ export function ARVirtualStudio() {
 
             <div className="grid grid-cols-3 gap-3 sm:flex sm:items-center sm:justify-center sm:gap-12 py-2">
               {(["matte-black", "titanium", "rose-gold"] as const).map((finish) => {
-                const option = getArFrameConfig(finish);
+                const option = getARFrameConfig(finish);
                 return (
                   <button key={finish} onClick={() => setActiveFinish(finish)} className="group flex flex-col items-center gap-3 rounded-2xl px-2 py-1">
                     <div className={cn("w-12 h-12 rounded-full p-1 relative transition-colors duration-300", activeFinish === finish ? "border-2 border-white" : "border border-white/20 group-hover:border-white/50")}>

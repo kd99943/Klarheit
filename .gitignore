@@ -12,5 +12,6 @@ backend/src/main/resources/application-local.yml
 
 .claude/
 .superpowers/
+.worktrees/
 .vscode/
 .idea/

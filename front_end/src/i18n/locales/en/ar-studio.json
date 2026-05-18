@@ -21,5 +21,18 @@
   "color.titanium": "Titanium",
   "color.roseGold": "Rose Gold",
   "lensProfile": "Lens profile",
-  "stillCaptured": "Still captured. Share export preview coming from connected device workflow."
+  "stillCaptured": "Still captured. Share export preview coming from connected device workflow.",
+  "status.initializing": "Preparing camera and face tracking",
+  "status.permission-denied": "Camera access is blocked",
+  "status.unsupported": "Live try-on needs a camera-capable browser",
+  "status.tracking": "Live AR Try-On Active",
+  "status.no-face": "Position your face inside the camera view",
+  "status.low-confidence": "Hold steady while tracking stabilizes",
+  "status.captured": "Still captured from live try-on",
+  "status.error": "Live try-on is temporarily unavailable",
+  "fallback.continue": "Continue with product preview",
+  "camera.start": "Start Camera",
+  "camera.retry": "Retry Camera",
+  "capture.ready": "Still captured from live try-on.",
+  "capture.unavailable": "Start live try-on before capturing a still."
 }

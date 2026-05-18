@@ -21,5 +21,18 @@
   "color.titanium": "钛金属",
   "color.roseGold": "玫瑰金",
   "lensProfile": "镜片方案",
-  "stillCaptured": "静帧已捕获。分享导出预览即将从连接设备工作流推出。"
+  "stillCaptured": "静帧已捕获。分享导出预览即将从连接设备工作流推出。",
+  "status.initializing": "正在准备摄像头和面部追踪",
+  "status.permission-denied": "摄像头访问已被阻止",
+  "status.unsupported": "实时试戴需要支持摄像头的现代浏览器",
+  "status.tracking": "AR 实时试戴中",
+  "status.no-face": "请将面部置于摄像头画面中",
+  "status.low-confidence": "请保持稳定，等待追踪校准",
+  "status.captured": "已从实时试戴中捕获静帧",
+  "status.error": "实时试戴暂时不可用",
+  "fallback.continue": "继续使用产品预览",
+  "camera.start": "开启摄像头",
+  "camera.retry": "重试摄像头",
+  "capture.ready": "已从实时试戴中捕获静帧。",
+  "capture.unavailable": "请先开启实时试戴再捕获静帧。"
 }

@@ -139,18 +139,24 @@ Default backend server:
 
 ### Database
 
-The backend now defaults to the `local` Spring profile, which uses an in-memory H2 database so local development can start without MySQL.
+The backend uses the `local` Spring profile with MySQL. You need MySQL running locally with a `lumina_optics` database.
 
-If you want to run against MySQL instead, set these environment variables before starting the backend:
+Create a `backend/.env` file with your MySQL credentials:
 
-- `SPRING_PROFILES_ACTIVE=default`
-- `DB_URL=jdbc:mysql://localhost:3306/lumina_optics?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC`
-- `DB_USERNAME=...`
-- `DB_PASSWORD=...`
-- `DB_DRIVER_CLASS_NAME=com.mysql.cj.jdbc.Driver`
-- `APP_JWT_SECRET=<base64 secret>`
+```bash
+SPRING_PROFILES_ACTIVE=local
+SERVER_PORT=8081
+DB_URL=jdbc:mysql://localhost:3306/lumina_optics?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+DB_USERNAME=root
+DB_PASSWORD=your-password
+DB_DRIVER_CLASS_NAME=com.mysql.cj.jdbc.Driver
+APP_JWT_SECRET=your-base64-secret-at-least-32-bytes
+JPA_DDL_AUTO=update
+```
 
 Template values are documented in [backend/.env.example](/C:/Users/17761/Desktop/Klarheit/backend/.env.example).
+
+**Note:** Tests use H2 in-memory database for speed and isolation. Run tests with `-Dspring.profiles.active=test`.
 
 ## Notes
 

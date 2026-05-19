@@ -1,12 +1,12 @@
 spring:
   datasource:
-    url: ${DB_URL:jdbc:h2:mem:klarheit_local;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE}
-    driver-class-name: ${DB_DRIVER_CLASS_NAME:org.h2.Driver}
-    username: ${DB_USERNAME:sa}
+    url: ${DB_URL:jdbc:mysql://localhost:3306/lumina_optics?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+    driver-class-name: ${DB_DRIVER_CLASS_NAME:com.mysql.cj.jdbc.Driver}
+    username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:}
   jpa:
     hibernate:
-      ddl-auto: ${JPA_DDL_AUTO:none}
+      ddl-auto: ${JPA_DDL_AUTO:update}
   flyway:
     enabled: true
 

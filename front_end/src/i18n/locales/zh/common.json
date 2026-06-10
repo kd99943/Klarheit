@@ -1,7 +1,7 @@
 {
   "nav.collections": "产品系列",
-  "nav.configLab": "配置工坊",
-  "nav.arStudio": "AR 工作室",
+  "nav.configLab": "配镜向导",
+  "nav.arStudio": "虚拟试戴",
   "nav.checkout": "结算",
   "nav.session": "会话",
   "nav.signIn": "登录",
@@ -10,8 +10,8 @@
   "nav.myAccount": "我的账户",
   "nav.profile": "个人资料",
   "nav.myOrders": "我的订单",
-  "nav.prescriptionProfile": "处方档案",
-  "nav.config": "配置",
+  "nav.prescriptionProfile": "我的处方",
+  "nav.config": "配镜向导",
   "nav.signOut": "退出登录",
   "nav.exit": "退出",
   "nav.menu": "菜单",
@@ -34,10 +34,13 @@
   "auth.continue": "继续",
   "auth.creatingAccount": "创建账户中...",
   "auth.minimumChars": "至少 8 个字符",
+  "auth.unableToSignIn": "无法登录。请检查您的凭证或稍后重试。",
+  "auth.unableToCreateAccount": "无法创建账户。该邮箱可能已被占用。",
   "protected.restoringSession": "正在恢复安全会话...",
   "protected.accountRequired": "需要账户",
   "protected.signInToContinue": "登录以继续",
   "error.somethingWentWrong": "出现错误",
   "error.unexpectedError": "渲染此页面时发生意外错误，请尝试刷新。",
-  "error.refreshPage": "刷新页面"
+  "error.refreshPage": "刷新页面",
+  "auth.emailPlaceholder": "client@example.com"
 }

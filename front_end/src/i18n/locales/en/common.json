@@ -1,7 +1,7 @@
 {
   "nav.collections": "Collections",
   "nav.configLab": "Config Lab",
-  "nav.arStudio": "AR Studio",
+  "nav.arStudio": "Virtual Try-On",
   "nav.checkout": "Checkout",
   "nav.session": "Session",
   "nav.signIn": "Sign in",
@@ -34,10 +34,13 @@
   "auth.continue": "Continue",
   "auth.creatingAccount": "Creating Account...",
   "auth.minimumChars": "Minimum 8 characters",
+  "auth.unableToSignIn": "Unable to sign in.",
+  "auth.unableToCreateAccount": "Unable to create your account.",
   "protected.restoringSession": "Restoring secure session...",
   "protected.accountRequired": "Account Required",
   "protected.signInToContinue": "Sign in to continue",
   "error.somethingWentWrong": "Something went wrong",
   "error.unexpectedError": "An unexpected error occurred while rendering this page. Please try refreshing.",
-  "error.refreshPage": "Refresh Page"
+  "error.refreshPage": "Refresh Page",
+  "auth.emailPlaceholder": "client@example.com"
 }

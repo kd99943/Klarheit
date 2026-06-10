@@ -70,6 +70,10 @@ vi.mock("../ar/ARTryOnCanvas", () => ({
   ARTryOnCanvas: () => <div data-testid="ar-try-on-canvas" />,
 }));
 
+vi.mock("../services/api", () => ({
+  fetchArConfigs: vi.fn().mockResolvedValue([]),
+}));
+
 import { ARVirtualStudio } from "./ARVirtualStudio";
 
 describe("ARVirtualStudio", () => {

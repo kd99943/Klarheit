@@ -1,7 +1,13 @@
+import type { ARFrameConfig } from "../ar/types";
+
 export interface Product {
   id: number;
   name: string;
   material: string;
+  nameEn: string;
+  nameZh: string;
+  materialEn: string;
+  materialZh: string;
   basePrice: number;
   imageUrl: string;
 }
@@ -14,7 +20,7 @@ export interface UserProfile {
 }
 
 export interface AuthResponse {
-  token: string;
+  token?: string | null;
   user: UserProfile;
 }
 
@@ -48,6 +54,8 @@ export interface OrderRequest {
     axisOs: number;
     pd: number;
   };
+  couponCode?: string;
+  paymentChannel?: string;
 }
 
 export interface OrderResponse {
@@ -56,6 +64,19 @@ export interface OrderResponse {
   totalAmount: number;
   productName: string;
   lensOptionTypes: string[];
+  payData?: string;
+}
+
+export interface CouponValidateRequest {
+  code: string;
+  currentAmount: number;
+}
+
+export interface CouponValidateResponse {
+  code: string;
+  type: string;
+  value: number;
+  discountAmount: number;
 }
 
 export interface OrderSummary {
@@ -87,7 +108,7 @@ interface ApiErrorPayload {
 
 const DEFAULT_API_BASE_URL = "http://localhost:8081/api/v1";
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL?.trim() || DEFAULT_API_BASE_URL).replace(/\/$/, "");
-const AUTH_TOKEN_KEY = "lumina_auth_token";
+const AUTH_TOKEN_KEY = "klarheit_auth_token";
 
 export class ApiError extends Error {
   status: number;
@@ -108,20 +129,16 @@ function getBrowserStorage() {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const authToken = getStoredAuthToken();
   const headers = new Headers(init?.headers);
 
   if (init?.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
 
-  if (authToken && !headers.has("Authorization")) {
-    headers.set("Authorization", `Bearer ${authToken}`);
-  }
-
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     headers,
+    credentials: "include",
   });
 
   const contentType = response.headers.get("content-type");
@@ -177,6 +194,12 @@ export function loginUser(payload: LoginRequest): Promise<AuthResponse> {
   });
 }
 
+export function logoutUser(): Promise<void> {
+  return request<void>("/auth/logout", {
+    method: "POST",
+  });
+}
+
 export function fetchCurrentUser(): Promise<UserProfile> {
   return request<UserProfile>("/auth/me");
 }
@@ -188,8 +211,31 @@ export function checkoutOrder(payload: OrderRequest): Promise<OrderResponse> {
   });
 }
 
+export function validateCouponApi(payload: CouponValidateRequest): Promise<CouponValidateResponse> {
+  return request<CouponValidateResponse>("/coupons/validate", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 export function fetchMyOrders(): Promise<OrderSummary[]> {
   return request<OrderSummary[]>("/orders/my");
+}
+
+export interface PageResponse<T> {
+  content: T[];
+  totalElements: number;
+  totalPages: number;
+  size: number;
+  number: number;
+}
+
+export function fetchMyOrdersPaged(page = 0, size = 20): Promise<PageResponse<OrderSummary>> {
+  return request<PageResponse<OrderSummary>>(`/orders/my/paged?page=${page}&size=${size}`);
+}
+
+export function fetchProductsPaged(page = 0, size = 20): Promise<PageResponse<Product>> {
+  return request<PageResponse<Product>>(`/products/paged?page=${page}&size=${size}`);
 }
 
 export function fetchLensOptions(): Promise<LensOption[]> {
@@ -210,6 +256,10 @@ export function fetchLatestPrescription(): Promise<{
   return request("/prescriptions/me/latest");
 }
 
+export function fetchArConfigs(): Promise<ARFrameConfig[]> {
+  return request<ARFrameConfig[]>("/products/ar-configs");
+}
+
 export function getStoredAuthToken(): string | null {
   return getBrowserStorage()?.getItem(AUTH_TOKEN_KEY) ?? null;
 }
@@ -224,4 +274,19 @@ export function logoutStoredAuthToken() {
 
 export function isApiErrorWithStatus(error: unknown, status: number) {
   return error instanceof ApiError && error.status === status;
+}
+
+export function getOrderStatus(orderNumber: string): Promise<{ status: string }> {
+  return request<{ status: string }>(`/orders/${orderNumber}/status`);
+}
+
+export function triggerMockPayment(orderNumber: string, channel: string): Promise<string> {
+  return request<string>("/payments/callback/mock-trigger", {
+    method: "POST",
+    body: JSON.stringify({ orderNumber, channel }),
+  });
+}
+
+export function getApiBaseUrl(): string {
+  return API_BASE_URL;
 }

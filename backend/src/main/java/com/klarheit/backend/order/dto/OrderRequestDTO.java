@@ -9,5 +9,16 @@ public record OrderRequestDTO(
         @NotNull Long productId,
         @NotEmpty List<String> lensOptionTypes,
         @NotNull @Valid CustomerInfoDTO customer,
-        @NotNull @Valid PrescriptionDetailsDTO prescription
-) {}
+        @NotNull @Valid PrescriptionDetailsDTO prescription,
+        String couponCode,
+        String paymentChannel,
+        String finishId
+) {
+    public OrderRequestDTO(Long productId, List<String> lensOptionTypes, CustomerInfoDTO customer, PrescriptionDetailsDTO prescription) {
+        this(productId, lensOptionTypes, customer, prescription, null, null, null);
+    }
+
+    public OrderRequestDTO(Long productId, List<String> lensOptionTypes, CustomerInfoDTO customer, PrescriptionDetailsDTO prescription, String couponCode, String paymentChannel) {
+        this(productId, lensOptionTypes, customer, prescription, couponCode, paymentChannel, null);
+    }
+}

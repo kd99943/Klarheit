@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS product_ar_configs (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    product_id BIGINT NOT NULL,
+    finish_id VARCHAR(64) NOT NULL,
+    finish_label_key VARCHAR(120) NOT NULL,
+    lens_label VARCHAR(120) NOT NULL,
+    fit_label_key VARCHAR(120) NOT NULL,
+    frame_color VARCHAR(32) NOT NULL,
+    lens_color VARCHAR(32) NOT NULL,
+    model_url VARCHAR(1024) NULL,
+    position_x DECIMAL(6, 4) NOT NULL,
+    position_y DECIMAL(6, 4) NOT NULL,
+    position_z DECIMAL(6, 4) NOT NULL,
+    rotation_x DECIMAL(6, 4) NOT NULL,
+    rotation_y DECIMAL(6, 4) NOT NULL,
+    rotation_z DECIMAL(6, 4) NOT NULL,
+    scale DECIMAL(6, 4) NOT NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT fk_product_ar_configs_product FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE CASCADE
+);

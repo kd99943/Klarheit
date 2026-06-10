@@ -1,12 +1,11 @@
 package com.klarheit.backend;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -22,9 +21,6 @@ import org.springframework.test.web.servlet.MvcResult;
 class AuthControllerIntegrationTests {
     @Autowired
     private MockMvc mockMvc;
-
-    @Autowired
-    private ObjectMapper objectMapper;
 
     @Test
     void registerLoginAndMeFlowWorks() throws Exception {
@@ -42,15 +38,17 @@ class AuthControllerIntegrationTests {
                 .andExpect(jsonPath("$.user.email").value("ava@example.com"))
                 .andReturn();
 
-        String registerToken = tokenFrom(registerResult);
+        jakarta.servlet.http.Cookie registerCookie = registerResult.getResponse().getCookie("klarheit_auth_token");
+        assertThat(registerCookie).isNotNull();
+        assertThat(registerCookie.isHttpOnly()).isTrue();
 
         mockMvc.perform(get("/api/v1/auth/me")
-                        .header("Authorization", "Bearer " + registerToken))
+                        .cookie(registerCookie))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.firstName").value("Ava"))
                 .andExpect(jsonPath("$.lastName").value("Stone"));
 
-        mockMvc.perform(post("/api/v1/auth/login")
+        MvcResult loginResult = mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -59,12 +57,19 @@ class AuthControllerIntegrationTests {
                                 }
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.token").isString())
-                .andExpect(jsonPath("$.user.email").value("ava@example.com"));
-    }
+                .andExpect(jsonPath("$.token").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.user.email").value("ava@example.com"))
+                .andReturn();
 
-    private String tokenFrom(MvcResult result) throws Exception {
-        JsonNode root = objectMapper.readTree(result.getResponse().getContentAsString());
-        return root.get("token").asText();
+        jakarta.servlet.http.Cookie loginCookie = loginResult.getResponse().getCookie("klarheit_auth_token");
+        assertThat(loginCookie).isNotNull();
+
+        MvcResult logoutResult = mockMvc.perform(post("/api/v1/auth/logout"))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        jakarta.servlet.http.Cookie clearedCookie = logoutResult.getResponse().getCookie("klarheit_auth_token");
+        assertThat(clearedCookie).isNotNull();
+        assertThat(clearedCookie.getMaxAge()).isEqualTo(0);
     }
 }

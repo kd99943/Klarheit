@@ -1,0 +1,19 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/klarheit?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+    driver-class-name: ${DB_DRIVER_CLASS_NAME:com.mysql.cj.jdbc.Driver}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
+  jpa:
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:update}
+  flyway:
+    enabled: true
+    baselineOnMigrate: true
+    repairOnMigrate: true
+
+app:
+  jwt:
+    secret: ${APP_JWT_SECRET}
+    expiration-millis: ${APP_JWT_EXPIRATION_MILLIS:86400000}
+  frontend-url: ${APP_FRONTEND_URL:http://localhost:5173}

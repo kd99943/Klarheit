@@ -3,6 +3,7 @@ package com.klarheit.backend.config;
 import com.klarheit.backend.lens.LensOption;
 import com.klarheit.backend.lens.LensOptionRepository;
 import com.klarheit.backend.product.Product;
+import com.klarheit.backend.product.ProductArConfig;
 import com.klarheit.backend.product.ProductRepository;
 import java.math.BigDecimal;
 import java.util.List;
@@ -12,54 +13,66 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+/**
+ * Ensures catalog data is present at startup.
+ *
+ * <p>Seed products, lens options, and AR configs are managed by Flyway
+ * (V8__seed_catalog_data_and_fixes.sql).  This bean only fills in any
+ * gaps that Flyway cannot express — primarily upserting AR config
+ * rows whose fields may have changed since the last migration.</p>
+ */
 @Configuration
 public class DataInitializer {
     @Bean
     ApplicationRunner seedCatalogData(ProductRepository productRepository, LensOptionRepository lensOptionRepository) {
         return args -> {
-            seedMissingProducts(productRepository);
-            seedMissingLensOptions(lensOptionRepository);
+            seedProductArConfigs(productRepository);
         };
     }
 
-    private void seedMissingProducts(ProductRepository productRepository) {
-        Set<String> existingNames = productRepository.findAll().stream()
-                .map(Product::getName)
-                .collect(Collectors.toSet());
+    private void seedProductArConfigs(ProductRepository productRepository) {
+        productRepository.findAll().stream()
+                .filter(p -> "AERO X1".equals(p.getNameEn()))
+                .findFirst()
+                .ifPresent(product -> {
+                    List<ProductArConfig> configs = product.getArConfigs();
 
-        List<Product> missingProducts = List.of(
-                        Product.builder().name("AERO X1").material("Grade 5 Titanium").basePrice(new BigDecimal("850.00"))
-                                .imageUrl("https://lh3.googleusercontent.com/aida-public/AB6AXuBb8Byc3U14OllQFzl-P3jW6do7clbwnX0iFlGhm-dgQ4lKhvqPzuoez03VjTXp8XoLHNudC1mK6t3jupMF90W-0wguyx7zkWM1RXS4NSNWBDT69eraS571YqMoHbAYZLV5gouVZzrb50-luJbqipELl8KUylM3Y0J289w735wXOzMTsOtOR-xNt3w0xgbRPYUSS225D5-tQX2cxaqqgBgKiwUtCD0wbbLj25rKtxfgdgfBVAkgfG5BikV3d1IRr8EM5yOe5nH_fg").build(),
-                        Product.builder().name("MONOLITH 02").material("Japanese Acetate").basePrice(new BigDecimal("620.00"))
-                                .imageUrl("https://lh3.googleusercontent.com/aida-public/AB6AXuB-rn8ohBXhkK5Zwr0-gxrOU05kJfJE3RYrXhziYItbHh-hVYJxeuYF0D9xwbRBwD74S45HUVt2NGhC5g_jwe9EM9TaPK7UaPLhRXo2L7-Y053JJ9IDdIcrIWlRzUsFQA6ZudgG4zr9yf66v3EeLBUA6TRkxQuWsqPuV9qEMCLU8Pgxd8MA6APqpuKXNqTtKuJ_BlTBsPAz6u19E_TnRdn_JxWOhtmVg7ByXQ4pnjYqqdq1DPwIWumqWysNoX5VsLB5bOnF33qDsA").build(),
-                        Product.builder().name("ORBIT T-4").material("Surgical Steel / Titanium").basePrice(new BigDecimal("950.00"))
-                                .imageUrl("https://lh3.googleusercontent.com/aida-public/AB6AXuCW9E0krcpnM7Ui5ztHe63T0dkMQCoyET_YKJb9pGJ1UYgUls9Oxjcs4QaCOi3JUBaM8qtRc23xVvjnfKI6R4cYc1tSbwmSs0N5xDtL_TbmgTnvvWoSO9ozhsVwmGkEMqhfmbIRZAQpqQAw4VhR09kInAtHUWj1lL6A8N9zwjsTdrA9n8TsdGaZhGY1dLSBTGem1XM9f3qZyKr9kUlf2fGkyzGULqWFPg0ByecOimLVcl6KVEYoGR2Nhh4hu9ewOAPw7EEy85VpsQ").build(),
-                        Product.builder().name("LUCENT V1").material("Crystal Acetate").basePrice(new BigDecimal("580.00"))
-                                .imageUrl("https://lh3.googleusercontent.com/aida-public/AB6AXuBlqQjs3rJN8DXJPK2WuyscH3ggw4Lka1Yot4iySSJkzTvYGf1VmMUb8TGYYnCeVxtWQHARMzLbczD79b96c5L5oMpb7bjYTruEabxAKfetMqiILt9_RgTh0Fe0G-ZqNh7b9gy7fd7XI94GmMzDHgNkqlaO7oYZWTh8IDOnluhjt-xVKUsl28HT47DihnoQjlGLnCtss3qIY4kJlxhs20xbtZJPypOYuJ8eajMDgzrvhkfy-4V2g-FkPJWo16ggJoG7IgHiWwF0tA").build())
-                .stream()
-                .filter(product -> !existingNames.contains(product.getName()))
-                .toList();
+                    updateOrCreateConfig(product, configs, "matte-black", "color.matteBlack", "Onyx AR", "Onyx AR", "黑玛瑙增透膜", "fit.urbanContrast", "#111827", "#5eead4", new BigDecimal("-0.0300"));
+                    updateOrCreateConfig(product, configs, "titanium", "color.titanium", "Neutral Clear", "Neutral Clear", "自然高清无色", "fit.studioNeutral", "#94a3b8", "#dbeafe", new BigDecimal("-0.0300"));
+                    updateOrCreateConfig(product, configs, "rose-gold", "color.roseGold", "Warm HEV", "Warm HEV", "暖色防蓝光", "fit.softDaylight", "#fb7185", "#fed7aa", new BigDecimal("-0.0300"));
 
-        if (!missingProducts.isEmpty()) {
-            productRepository.saveAll(missingProducts);
-        }
+                    productRepository.save(product);
+                });
     }
 
-    private void seedMissingLensOptions(LensOptionRepository lensOptionRepository) {
-        Set<String> existingTypes = lensOptionRepository.findAll().stream()
-                .map(LensOption::getType)
-                .collect(Collectors.toSet());
+    private void updateOrCreateConfig(Product product, List<ProductArConfig> configs, String finishId, String finishLabelKey, String lensLabel, String lensLabelEn, String lensLabelZh, String fitLabelKey, String frameColor, String lensColor, BigDecimal posY) {
+        ProductArConfig config = configs.stream()
+                .filter(c -> finishId.equals(c.getFinishId()))
+                .findFirst()
+                .orElse(null);
 
-        List<LensOption> missingOptions = List.of(
-                        LensOption.builder().type("HIGH_INDEX_174").indexValue(new BigDecimal("1.74")).additionalPrice(new BigDecimal("215.00")).build(),
-                        LensOption.builder().type("AR_ONYX").indexValue(BigDecimal.ZERO.setScale(2)).additionalPrice(new BigDecimal("60.00")).build(),
-                        LensOption.builder().type("HEV_BLUE").indexValue(BigDecimal.ZERO.setScale(2)).additionalPrice(new BigDecimal("30.00")).build())
-                .stream()
-                .filter(option -> !existingTypes.contains(option.getType()))
-                .toList();
-
-        if (!missingOptions.isEmpty()) {
-            lensOptionRepository.saveAll(missingOptions);
+        if (config == null) {
+            config = ProductArConfig.builder()
+                    .product(product)
+                    .finishId(finishId)
+                    .build();
+            configs.add(config);
         }
+
+        config.setFinishLabelKey(finishLabelKey);
+        config.setLensLabel(lensLabel);
+        config.setLensLabelEn(lensLabelEn);
+        config.setLensLabelZh(lensLabelZh);
+        config.setFitLabelKey(fitLabelKey);
+        config.setFrameColor(frameColor);
+        config.setLensColor(lensColor);
+        config.setModelUrl(null);
+        config.setPositionX(BigDecimal.ZERO.setScale(4));
+        config.setPositionY(posY);
+        config.setPositionZ(BigDecimal.ZERO.setScale(4));
+        config.setRotationX(BigDecimal.ZERO.setScale(4));
+        config.setRotationY(BigDecimal.ZERO.setScale(4));
+        config.setRotationZ(BigDecimal.ZERO.setScale(4));
+        config.setScale(BigDecimal.ONE.setScale(4));
     }
 }

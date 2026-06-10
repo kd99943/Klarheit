@@ -15,10 +15,12 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.transaction.annotation.Transactional;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@Transactional
 class OrderControllerIntegrationTests {
     @Autowired
     private MockMvc mockMvc;
@@ -65,7 +67,7 @@ class OrderControllerIntegrationTests {
 
         assertThat(order.getCustomerEmail()).isEqualTo("checkout@example.com");
         assertThat(order.getShippingAddress()).isEqualTo("1 Vision Plaza");
-        assertThat(order.getLensOptionTypes()).isEqualTo("HIGH_INDEX_174,AR_ONYX,HEV_BLUE");
+        assertThat(order.getLensOptionTypes()).containsExactly("HIGH_INDEX_174", "AR_ONYX", "HEV_BLUE");
         assertThat(order.getPrescription()).isNotNull();
         assertThat(order.getProduct()).isNotNull();
     }
@@ -96,5 +98,36 @@ class OrderControllerIntegrationTests {
                                 }
                                 """))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void checkoutRejectsInvalidDiopter() throws Exception {
+        String token = TestAuthSupport.registerAndExtractToken(mockMvc, "checkout_invalid@example.com");
+
+        mockMvc.perform(post("/api/v1/orders/checkout")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "productId": 1,
+                                  "lensOptionTypes": ["HIGH_INDEX_174"],
+                                  "customer": {
+                                    "firstName": "Mina",
+                                    "lastName": "Hart",
+                                    "email": "checkout_invalid@example.com",
+                                    "shippingAddress": "1 Vision Plaza"
+                                  },
+                                  "prescription": {
+                                    "sphOd": -2.13,
+                                    "sphOs": -2.00,
+                                    "cylOd": -0.50,
+                                    "cylOs": -0.25,
+                                    "axisOd": 180,
+                                    "axisOs": 175,
+                                    "pd": 63.50
+                                  }
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
     }
 }

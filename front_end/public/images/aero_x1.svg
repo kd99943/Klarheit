@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400" width="100%" height="100%">
+  <defs>
+    <!-- Premium AR Cyan/Teal Lens Gradient -->
+    <linearGradient id="tealLensGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#14b8a6" stop-opacity="0.18" />
+      <stop offset="40%" stop-color="#06b6d4" stop-opacity="0.08" />
+      <stop offset="100%" stop-color="#3b82f6" stop-opacity="0.15" />
+    </linearGradient>
+    <!-- Metallic Rim Highlight -->
+    <linearGradient id="titaniumGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1e293b" />
+      <stop offset="50%" stop-color="#475569" />
+      <stop offset="100%" stop-color="#0f172a" />
+    </linearGradient>
+    <filter id="softShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#0f172a" flood-opacity="0.06" />
+    </filter>
+  </defs>
+
+  <g filter="url(#softShadow)">
+    <!-- Temples (Sides) -->
+    <path d="M 120 180 C 80 180, 50 200, 40 240" fill="none" stroke="url(#titaniumGrad)" stroke-width="3" stroke-linecap="round" />
+    <path d="M 480 180 C 520 180, 550 200, 560 240" fill="none" stroke="url(#titaniumGrad)" stroke-width="3" stroke-linecap="round" />
+    
+    <!-- Temple Hinges -->
+    <rect x="118" y="176" width="6" height="8" rx="2" fill="#64748b" />
+    <rect x="476" y="176" width="6" height="8" rx="2" fill="#64748b" />
+
+    <!-- Left Lens & Inner Light -->
+    <path d="M 140 180 C 140 145, 270 145, 275 180 C 275 225, 140 235, 140 180 Z" fill="url(#tealLensGrad)" />
+    <!-- Left Rim -->
+    <path d="M 140 180 C 140 145, 270 145, 275 180 C 275 225, 140 235, 140 180 Z" fill="none" stroke="url(#titaniumGrad)" stroke-width="4.5" stroke-linejoin="round" />
+    
+    <!-- Right Lens & Inner Light -->
+    <path d="M 460 180 C 460 145, 330 145, 325 180 C 325 225, 460 235, 460 180 Z" fill="url(#tealLensGrad)" />
+    <!-- Right Rim -->
+    <path d="M 460 180 C 460 145, 330 145, 325 180 C 325 225, 460 235, 460 180 Z" fill="none" stroke="url(#titaniumGrad)" stroke-width="4.5" stroke-linejoin="round" />
+    
+    <!-- Sleek Double Bridge (Signature Aviator) -->
+    <!-- Top slim bar -->
+    <path d="M 268 158 Q 300 155, 332 158" fill="none" stroke="url(#titaniumGrad)" stroke-width="2.5" />
+    <!-- Bottom solid bar -->
+    <path d="M 273 176 Q 300 173, 327 176" fill="none" stroke="url(#titaniumGrad)" stroke-width="4" stroke-linecap="round" />
+
+    <!-- Nose Pad Connectors -->
+    <path d="M 266 195 Q 274 200, 272 208" fill="none" stroke="url(#titaniumGrad)" stroke-width="2" />
+    <path d="M 334 195 Q 326 200, 328 208" fill="none" stroke="url(#titaniumGrad)" stroke-width="2" />
+    
+    <!-- Nose Pads -->
+    <ellipse cx="272" cy="208" rx="3" ry="6" fill="#e2e8f0" opacity="0.8" />
+    <ellipse cx="328" cy="208" rx="3" ry="6" fill="#e2e8f0" opacity="0.8" />
+
+    <!-- Premium Reflections on Lenses -->
+    <path d="M 160 162 L 180 156" stroke="#ffffff" stroke-width="2" stroke-linecap="round" opacity="0.4" />
+    <path d="M 155 168 L 170 163" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" opacity="0.3" />
+    <path d="M 440 162 L 420 156" stroke="#ffffff" stroke-width="2" stroke-linecap="round" opacity="0.4" />
+    <path d="M 445 168 L 430 163" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" opacity="0.3" />
+  </g>
+</svg>

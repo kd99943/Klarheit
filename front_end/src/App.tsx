@@ -4,6 +4,7 @@
  */
 
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { AuthProvider } from "./auth/AuthProvider";
 import { ProtectedRoute } from "./auth/ProtectedRoute";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -17,6 +18,7 @@ import { MyAccountPage } from "./pages/MyAccountPage";
 import { OrderConfirmationPage } from "./pages/OrderConfirmationPage";
 
 export default function App() {
+  const { t } = useTranslation();
   return (
     <BrowserRouter>
       <ErrorBoundary>
@@ -29,7 +31,7 @@ export default function App() {
               <Route
                 path="config-lab"
                 element={
-                  <ProtectedRoute message="Create an account to access the Config Lab and save your prescription.">
+                  <ProtectedRoute message={t("nav.signInMessage")}>
                     <ConfigLab />
                   </ProtectedRoute>
                 }
@@ -37,7 +39,7 @@ export default function App() {
               <Route
                 path="checkout"
                 element={
-                  <ProtectedRoute message="Sign in to continue to checkout and finalize your custom order.">
+                  <ProtectedRoute message={t("auth.defaultMessage")}>
                     <Checkout />
                   </ProtectedRoute>
                 }
@@ -45,7 +47,7 @@ export default function App() {
               <Route
                 path="my-account"
                 element={
-                  <ProtectedRoute message="Sign in to access your Klarheit account workspace.">
+                  <ProtectedRoute message={t("nav.signInMessage")}>
                     <MyAccountPage />
                   </ProtectedRoute>
                 }
@@ -53,7 +55,7 @@ export default function App() {
               <Route
                 path="order-confirmation"
                 element={
-                  <ProtectedRoute message="Sign in to view your order confirmation.">
+                  <ProtectedRoute message={t("auth.defaultMessage")}>
                     <OrderConfirmationPage />
                   </ProtectedRoute>
                 }

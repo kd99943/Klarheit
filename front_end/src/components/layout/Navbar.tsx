@@ -1,11 +1,13 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, FileText, LogOut, Menu, ShoppingBag, User, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
 import { useAuth } from "../../auth/AuthProvider";
 import { LanguageToggle } from "./LanguageToggle";
 
 export function Navbar() {
+  const { t } = useTranslation();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
@@ -44,9 +46,9 @@ export function Navbar() {
   }, []);
 
   const navItems: Array<{ to: string; label: string; requiresAuth?: boolean; message?: string }> = [
-    { to: "/collections", label: "Collections" },
-    { to: "/config-lab", label: "Config Lab", requiresAuth: true, message: "Create an account to access the Config Lab and save your prescription." },
-    { to: "/virtual-studio", label: "AR Studio" },
+    { to: "/collections", label: t("nav.collections") },
+    { to: "/config-lab", label: t("nav.configLab"), requiresAuth: true, message: t("nav.signInMessage") },
+    { to: "/virtual-studio", label: t("nav.arStudio") },
   ];
 
   return (
@@ -93,14 +95,14 @@ export function Navbar() {
         {/* Global Actions */}
         <div className="flex items-center gap-3 sm:gap-4 z-20">
           <div className="hidden xl:block text-[10px] uppercase tracking-widest text-slate-400 font-mono mr-2">
-            Session: {user ? `${user.firstName.slice(0, 1)}${user.lastName.slice(0, 1)}-4920` : "CH-4920"}
+            {t("nav.session")}: {user ? `${user.firstName.slice(0, 1)}${user.lastName.slice(0, 1)}-4920` : "CH-4920"}
           </div>
           <LanguageToggle isDark={isDarkCanvas || scrolled} className="hidden sm:flex" />
           <button
             onClick={() => {
               if (requireAuth(
                 { path: "/checkout" },
-                "Sign in to continue to checkout and secure your custom order."
+                t("auth.defaultMessage")
               )) {
                 navigate("/checkout");
               }
@@ -112,7 +114,7 @@ export function Navbar() {
                 : "border-slate-200 hover:bg-brand-primary hover:text-white"
             )}
           >
-            Checkout
+            {t("nav.checkout")}
           </button>
           <div className="relative" ref={accountMenuRef}>
             {isAuthenticated && user ? (
@@ -123,7 +125,7 @@ export function Navbar() {
                     "flex items-center gap-3 rounded-full border px-2 py-2 transition-colors",
                     isDarkCanvas || scrolled ? "border-white/20 hover:bg-white/10" : "border-slate-200 hover:bg-slate-50"
                   )}
-                  title="Open account"
+                  title={t("nav.openAccount")}
                   aria-expanded={accountMenuOpen}
                 >
                   <div
@@ -139,7 +141,7 @@ export function Navbar() {
                       {accountName}
                     </span>
                     <span className={cn("mt-1 text-[9px] uppercase tracking-[0.18em]", isDarkCanvas || scrolled ? "text-white/60" : "text-slate-400")}>
-                      Verified Account
+                      {t("nav.verifiedAccount")}
                     </span>
                   </div>
                   <ChevronDown className={cn("hidden md:block h-4 w-4 transition-transform", accountMenuOpen ? "rotate-180" : "", isDarkCanvas || scrolled ? "text-white/70" : "text-slate-400")} strokeWidth={1.5} />
@@ -168,7 +170,7 @@ export function Navbar() {
                       </div>
                     </div>
                     <p className={cn("mt-3 text-[10px] uppercase tracking-[0.18em]", isDarkCanvas || scrolled ? "text-white/50" : "text-slate-400")}>
-                      Signed in and ready to manage orders and prescriptions
+                      {t("nav.signedInReady")}
                     </p>
                   </div>
 
@@ -186,9 +188,9 @@ export function Navbar() {
                     >
                       <span className="flex items-center gap-3">
                         <User className="h-4 w-4" strokeWidth={1.5} />
-                        My Account
+                        {t("nav.myAccount")}
                       </span>
-                      <span className={cn("text-[10px] uppercase tracking-[0.18em]", isDarkCanvas || scrolled ? "text-white/45" : "text-slate-400")}>Profile</span>
+                      <span className={cn("text-[10px] uppercase tracking-[0.18em]", isDarkCanvas || scrolled ? "text-white/45" : "text-slate-400")}>{t("nav.profile")}</span>
                     </button>
                     <button
                       type="button"
@@ -203,9 +205,9 @@ export function Navbar() {
                     >
                       <span className="flex items-center gap-3">
                         <ShoppingBag className="h-4 w-4" strokeWidth={1.5} />
-                        My Orders
+                        {t("nav.myOrders")}
                       </span>
-                      <span className={cn("text-[10px] uppercase tracking-[0.18em]", isDarkCanvas || scrolled ? "text-white/45" : "text-slate-400")}>Checkout</span>
+                      <span className={cn("text-[10px] uppercase tracking-[0.18em]", isDarkCanvas || scrolled ? "text-white/45" : "text-slate-400")}>{t("nav.checkout")}</span>
                     </button>
                     <button
                       type="button"
@@ -220,9 +222,9 @@ export function Navbar() {
                     >
                       <span className="flex items-center gap-3">
                         <FileText className="h-4 w-4" strokeWidth={1.5} />
-                        Prescription Profile
+                        {t("nav.prescriptionProfile")}
                       </span>
-                      <span className={cn("text-[10px] uppercase tracking-[0.18em]", isDarkCanvas || scrolled ? "text-white/45" : "text-slate-400")}>Config</span>
+                      <span className={cn("text-[10px] uppercase tracking-[0.18em]", isDarkCanvas || scrolled ? "text-white/45" : "text-slate-400")}>{t("nav.config")}</span>
                     </button>
                     <button
                       type="button"
@@ -237,9 +239,9 @@ export function Navbar() {
                     >
                       <span className="flex items-center gap-3">
                         <LogOut className="h-4 w-4" strokeWidth={1.5} />
-                        Sign Out
+                        {t("nav.signOut")}
                       </span>
-                      <span className={cn("text-[10px] uppercase tracking-[0.18em]", isDarkCanvas || scrolled ? "text-white/45" : "text-slate-400")}>Exit</span>
+                      <span className={cn("text-[10px] uppercase tracking-[0.18em]", isDarkCanvas || scrolled ? "text-white/45" : "text-slate-400")}>{t("nav.exit")}</span>
                     </button>
                   </div>
                 </div>
@@ -248,13 +250,13 @@ export function Navbar() {
               <button
                 onClick={() => openAuthModal({
                   mode: "signin",
-                  message: "Sign in or create your account to save your optical profile.",
+                  message: t("nav.signInMessage"),
                 })}
                 className={cn(
                   "w-10 h-10 flex items-center justify-center border rounded-full transition-colors",
                   isDarkCanvas || scrolled ? "border-white/20 hover:bg-white/10" : "border-slate-200 hover:bg-slate-50"
                 )}
-                title="Sign in"
+                title={t("nav.signIn")}
               >
                 <User className="w-4 h-4" strokeWidth={1.5} />
               </button>
@@ -266,7 +268,7 @@ export function Navbar() {
               "lg:hidden w-10 h-10 flex items-center justify-center border rounded-full transition-colors",
               isDarkCanvas || scrolled ? "border-white/20 hover:bg-white/10" : "border-slate-200 hover:bg-slate-50"
             )}
-            title="Menu"
+            title={t("nav.menu")}
             aria-expanded={mobileOpen}
             aria-controls="mobile-navigation"
           >
@@ -298,7 +300,7 @@ export function Navbar() {
                   : "border-slate-200 text-slate-500"
             )}
           >
-            My Account
+            {t("nav.myAccount")}
           </Link>
         ) : null}
         {navItems.map((item) => (

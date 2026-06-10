@@ -1,8 +1,9 @@
 // front_end/src/pages/ConfigLab.tsx
 import { useEffect, useState } from "react";
 import { ChevronRight, Sparkles } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { AR_FRAME_CATALOG } from "../ar/frameCatalog";
 import { useAuth } from "../auth/AuthProvider";
 import { useProducts } from "../hooks/useProducts";
 import { useLensOptions } from "../hooks/useLensOptions";
@@ -50,6 +51,11 @@ function validatePrescription(form: PrescriptionForm): PrescriptionErrors {
       errors[field] = `${range.label} must be a number`;
     } else if (num < range.min || num > range.max) {
       errors[field] = `${range.label} must be between ${range.min} and ${range.max}`;
+    } else if (["sphOd", "sphOs", "cylOd", "cylOs"].includes(key)) {
+      const isMultipleOf025 = Math.abs(Math.round(num * 4) - num * 4) < 1e-9;
+      if (!isMultipleOf025) {
+        errors[field] = `${range.label} must be in 0.25 increments (e.g. -2.00, -2.25)`;
+      }
     }
   }
   return errors;
@@ -57,7 +63,9 @@ function validatePrescription(form: PrescriptionForm): PrescriptionErrors {
 
 export function ConfigLab() {
   const navigate = useNavigate();
-  const { t } = useTranslation("config-lab");
+  const location = useLocation();
+  const { t, i18n } = useTranslation("config-lab");
+  const { t: tAr } = useTranslation("ar-studio");
   const { products } = useProducts();
   const { options: lensOptions, isLoading: isLoadingLens } = useLensOptions();
 
@@ -68,7 +76,22 @@ export function ConfigLab() {
   const [errors, setErrors] = useState<PrescriptionErrors>({});
   const [selectedLensTypes, setSelectedLensTypes] = useState<string[]>([]);
 
+  // Retrieve finishId from route state or sessionStorage
+  const [finishId] = useState<string | null>(() => {
+    const stateFinish = location.state?.finishId;
+    if (stateFinish) return stateFinish;
+    try {
+      return sessionStorage.getItem("savedFinishId");
+    } catch (e) {
+      return null;
+    }
+  });
+
   const selectedProduct = products[0] ?? null;
+  const selectedFinishConfig = finishId ? AR_FRAME_CATALOG[finishId as keyof typeof AR_FRAME_CATALOG] : null;
+  const isZh = i18n.language === "zh";
+  const productName = selectedProduct ? (isZh ? selectedProduct.nameZh : selectedProduct.nameEn) : "";
+  const productMaterial = selectedProduct ? (isZh ? selectedProduct.materialZh : selectedProduct.materialEn) : "";
 
   const steps = [
     { id: 1 as Step, label: t("steps.prescription.label"), description: t("steps.prescription.description") },
@@ -119,20 +142,27 @@ export function ConfigLab() {
       setActiveStep(1);
       return;
     }
-    navigate("/checkout", {
-      state: {
-        product: selectedProduct,
-        prescription: {
-          sphOd: Number(prescription.sphOd),
-          sphOs: Number(prescription.sphOs),
-          cylOd: Number(prescription.cylOd),
-          cylOs: Number(prescription.cylOs),
-          axisOd: Number(prescription.axisOd),
-          axisOs: Number(prescription.axisOs),
-          pd: Number(prescription.pd),
-        },
-        lensOptionTypes: selectedLensTypes,
+    const checkoutState = {
+      product: selectedProduct,
+      prescription: {
+        sphOd: Number(prescription.sphOd),
+        sphOs: Number(prescription.sphOs),
+        cylOd: Number(prescription.cylOd),
+        cylOs: Number(prescription.cylOs),
+        axisOd: Number(prescription.axisOd),
+        axisOs: Number(prescription.axisOs),
+        pd: Number(prescription.pd),
       },
+      lensOptionTypes: selectedLensTypes,
+      finishId: finishId || undefined,
+    };
+    try {
+      sessionStorage.setItem("klarheit_checkout_state", JSON.stringify(checkoutState));
+    } catch (e) {
+      console.error("Failed to save checkout state to sessionStorage", e);
+    }
+    navigate("/checkout", {
+      state: checkoutState,
     });
   }
 
@@ -255,8 +285,8 @@ export function ConfigLab() {
                             )}
                           >
                             <div>
-                              <p className="text-sm font-semibold text-brand-primary">{option.label}</p>
-                              <p className="text-xs text-slate-500 mt-1">{option.description}</p>
+                              <p className="text-sm font-semibold text-brand-primary">{t("lens." + option.type + ".label", { defaultValue: option.label })}</p>
+                              <p className="text-xs text-slate-500 mt-1">{t("lens." + option.type + ".description", { defaultValue: option.description })}</p>
                             </div>
                             <div className="flex items-center gap-3">
                               <span className="text-sm font-mono text-slate-600">{formatPrice(option.additionalPrice)}</span>
@@ -284,8 +314,8 @@ export function ConfigLab() {
                             )}
                           >
                             <div>
-                              <p className="text-sm font-semibold text-brand-primary">{option.label}</p>
-                              <p className="text-xs text-slate-500 mt-1">{option.description}</p>
+                              <p className="text-sm font-semibold text-brand-primary">{t("lens." + option.type + ".label", { defaultValue: option.label })}</p>
+                              <p className="text-xs text-slate-500 mt-1">{t("lens." + option.type + ".description", { defaultValue: option.description })}</p>
                             </div>
                             <div className="flex items-center gap-3">
                               <span className="text-sm font-mono text-slate-600">{formatPrice(option.additionalPrice)}</span>
@@ -326,7 +356,7 @@ export function ConfigLab() {
                     <div className="flex flex-col gap-2">
                       {lensOptions.filter((o) => selectedLensTypes.includes(o.type)).map((option) => (
                         <div key={option.id} className="flex justify-between items-center rounded-xl bg-slate-50 px-4 py-3">
-                          <span className="text-sm font-medium text-brand-primary">{option.label}</span>
+                          <span className="text-sm font-medium text-brand-primary">{t("lens." + option.type + ".label", { defaultValue: option.label })}</span>
                           <span className="text-sm font-mono text-slate-600">{formatPrice(option.additionalPrice)}</span>
                         </div>
                       ))}
@@ -343,16 +373,24 @@ export function ConfigLab() {
               <div className="relative z-10">
                 <div className="flex justify-between items-start mb-10">
                   <div>
-                    <h2 className="text-2xl font-display font-medium mb-1 tracking-wide">{selectedProduct?.name ?? "AERO X1"}</h2>
-                    <p className="text-[10px] text-brand-cyan/80 uppercase tracking-widest font-semibold mt-2">{selectedProduct?.material ?? "Titanium"}</p>
+                    <h2 className="text-2xl font-display font-medium mb-1 tracking-wide">{productName || "AERO X1"}</h2>
+                    <p className="text-[10px] text-brand-cyan/80 uppercase tracking-widest font-semibold mt-2">{productMaterial || "Titanium"}</p>
                   </div>
                   <div className="bg-white/10 px-2 py-1 rounded text-[9px] font-mono tracking-widest border border-white/20">{t("summary.premium")}</div>
                 </div>
                 <ul className="space-y-6 text-sm">
                   <li className="flex flex-col gap-1 border-b border-white/10 pb-4">
                     <span className="text-white/50 text-xs font-medium">{t("summary.frame")}</span>
-                    <span className="font-semibold tracking-wide">{selectedProduct?.name ?? "—"}</span>
+                    <span className="font-semibold tracking-wide">{productName || "—"}</span>
                   </li>
+                  {finishId && selectedFinishConfig && (
+                    <li className="flex flex-col gap-1 border-b border-white/10 pb-4">
+                      <span className="text-white/50 text-xs font-medium">{t("summary.finish")}</span>
+                      <span className="font-semibold tracking-wide">
+                        {tAr("color." + finishId, { defaultValue: selectedFinishConfig.finishLabelKey })}
+                      </span>
+                    </li>
+                  )}
                   <li className="flex flex-col gap-1 border-b border-white/10 pb-4">
                     <span className="text-white/50 text-xs font-medium">{t("summary.selectedOptions")}</span>
                     <span className="font-semibold tracking-wide">{selectedLensTypes.length} option{selectedLensTypes.length !== 1 ? "s" : ""}</span>

@@ -1,14 +1,14 @@
 {
   "eyebrow": "瑞士精密定制界面",
-  "title": "配置工坊",
-  "description": "调校处方参数、选择表面堆叠，在进入安全结算前审查光学配置。",
+  "title": "配镜向导",
+  "description": "调校处方参数、选择镜片与镀膜方案，在进入安全结算前审查您的配镜配置。",
   "engine": "引擎",
   "step1.eyebrow": "步骤 01",
   "step1.title": "验光处方",
   "step1.description": "输入您的处方参数。所有字段均按光学标准验证。",
   "step1.pdHint": "瞳距，单位为毫米",
   "step2.eyebrow": "步骤 02",
-  "step2.title": "表面详情",
+  "step2.title": "镜架与镜片详情",
   "step2.description": "从可用选项中选择镜片类型和镀膜。",
   "step2.loadingLens": "加载镜片选项中...",
   "step2.lensType": "镜片类型",
@@ -20,17 +20,32 @@
   "step3.selectedOptions": "已选选项",
   "steps.prescription.label": "处方",
   "steps.prescription.description": "球镜、柱镜、轴位",
-  "steps.surface.label": "表面",
-  "steps.surface.description": "镀膜和镜片特性",
+  "steps.surface.label": "定制详情",
+  "steps.surface.description": "定制镜片及镀膜特性",
   "steps.review.label": "审查",
   "steps.review.description": "下单前摘要",
   "summary.frame": "镜架",
-  "summary.selectedOptions": "已选选项",
+  "summary.finish": "镜架颜色/材质",
+  "summary.selectedOptions": "已选镜片选项",
   "summary.optionCount": "{{count}} 个选项",
   "summary.optionCount_plural": "{{count}} 个选项",
   "summary.activeStage": "当前阶段",
-  "summary.totalValue": "总价值",
+  "summary.totalValue": "总金额",
   "summary.premium": "高级",
   "nextStep": "下一步",
-  "initializeOrder": "确认下单"
+  "initializeOrder": "确认订单",
+  "lens": {
+    "HIGH_INDEX_174": {
+      "label": "定制高折射率镜片 (1.74)",
+      "description": "超薄 1.74 折射率镜片，适合深度近视/远视。"
+    },
+    "AR_ONYX": {
+      "label": "黑玛瑙防反射镀膜",
+      "description": "高级减反射多层膜，有效过滤反射光及眩光。"
+    },
+    "HEV_BLUE": {
+      "label": "防蓝光护目镜片",
+      "description": "吸收高能有害蓝光，适合日常面对屏幕使用。"
+    }
+  }
 }

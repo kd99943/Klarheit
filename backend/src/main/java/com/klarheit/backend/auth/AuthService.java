@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
-public class AuthService {
+public class AuthService implements UserService {
     private final UserAccountRepository userAccountRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
@@ -61,6 +61,16 @@ public class AuthService {
         UserAccount user = userAccountRepository.findByEmailIgnoreCase(normalizeEmail(email))
                 .orElseThrow(() -> new IllegalArgumentException("Authenticated user could not be found."));
         return toUserProfile(user);
+    }
+
+    @Override
+    public java.util.Optional<UserAccount> findByEmailIgnoreCase(String email) {
+        return userAccountRepository.findByEmailIgnoreCase(normalizeEmail(email));
+    }
+
+    @Override
+    public java.util.Optional<UserAccount> findById(Long id) {
+        return userAccountRepository.findById(id);
     }
 
     private UserProfileDTO toUserProfile(UserAccount user) {

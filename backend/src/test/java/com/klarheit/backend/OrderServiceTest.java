@@ -6,7 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import com.klarheit.backend.auth.UserAccount;
-import com.klarheit.backend.auth.UserAccountRepository;
+import com.klarheit.backend.auth.UserService;
 import com.klarheit.backend.email.EmailService;
 import com.klarheit.backend.lens.LensOption;
 import com.klarheit.backend.lens.LensOptionRepository;
@@ -43,9 +43,13 @@ class OrderServiceTest {
     @Mock
     private OrderRepository orderRepository;
     @Mock
-    private UserAccountRepository userAccountRepository;
+    private UserService userService;
     @Mock
     private EmailService emailService;
+    @Mock
+    private com.klarheit.backend.coupon.CouponService couponService;
+    @Mock
+    private com.klarheit.backend.payment.PaymentService paymentService;
 
     @InjectMocks
     private OrderService orderService;
@@ -101,7 +105,7 @@ class OrderServiceTest {
     @Test
     void checkoutCalculatesTotalCorrectly() {
         when(productRepository.findById(1L)).thenReturn(Optional.of(product));
-        when(userAccountRepository.findByEmailIgnoreCase("test@example.com")).thenReturn(Optional.of(user));
+        when(userService.findByEmailIgnoreCase("test@example.com")).thenReturn(Optional.of(user));
         when(lensOptionRepository.findByTypeIn(List.of("HIGH_INDEX_174", "AR_ONYX")))
                 .thenReturn(List.of(lensOption1, lensOption2));
         when(prescriptionRepository.save(any(Prescription.class)))
@@ -141,7 +145,7 @@ class OrderServiceTest {
         );
 
         when(productRepository.findById(1L)).thenReturn(Optional.of(product));
-        when(userAccountRepository.findByEmailIgnoreCase("test@example.com")).thenReturn(Optional.of(user));
+        when(userService.findByEmailIgnoreCase("test@example.com")).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> orderService.checkout(duplicateRequest, "test@example.com"))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -171,7 +175,7 @@ class OrderServiceTest {
     @Test
     void checkoutRejectsInvalidLensOption() {
         when(productRepository.findById(1L)).thenReturn(Optional.of(product));
-        when(userAccountRepository.findByEmailIgnoreCase("test@example.com")).thenReturn(Optional.of(user));
+        when(userService.findByEmailIgnoreCase("test@example.com")).thenReturn(Optional.of(user));
         // Return fewer lens options than requested (simulating invalid option)
         when(lensOptionRepository.findByTypeIn(List.of("INVALID_LENS")))
                 .thenReturn(List.of());
@@ -195,7 +199,7 @@ class OrderServiceTest {
     @Test
     void checkoutRejectsEmailMismatch() {
         when(productRepository.findById(1L)).thenReturn(Optional.of(product));
-        when(userAccountRepository.findByEmailIgnoreCase("other@example.com")).thenReturn(Optional.of(user));
+        when(userService.findByEmailIgnoreCase("other@example.com")).thenReturn(Optional.of(user));
 
         OrderRequestDTO mismatchedEmailRequest = new OrderRequestDTO(
                 1L,
@@ -211,5 +215,77 @@ class OrderServiceTest {
         assertThatThrownBy(() -> orderService.checkout(mismatchedEmailRequest, "other@example.com"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Checkout email must match the authenticated account");
+    }
+
+    @Test
+    void checkoutAppliesCouponAndComputesDiscount() {
+        OrderRequestDTO couponRequest = new OrderRequestDTO(
+                1L,
+                List.of("HIGH_INDEX_174", "AR_ONYX"),
+                new CustomerInfoDTO("John", "Doe", "test@example.com", "123 Main St"),
+                new PrescriptionDetailsDTO(
+                        new BigDecimal("-2.25"), new BigDecimal("-2.00"),
+                        new BigDecimal("-0.50"), new BigDecimal("-0.25"),
+                        180, 175,
+                        new BigDecimal("63.50")),
+                "KLARHEIT80",
+                "WECHAT"
+        );
+
+        when(productRepository.findById(1L)).thenReturn(Optional.of(product));
+        when(userService.findByEmailIgnoreCase("test@example.com")).thenReturn(Optional.of(user));
+        when(lensOptionRepository.findByTypeIn(List.of("HIGH_INDEX_174", "AR_ONYX")))
+                .thenReturn(List.of(lensOption1, lensOption2));
+        
+        com.klarheit.backend.coupon.dto.CouponValidateResponseDTO mockCouponResponse = 
+                new com.klarheit.backend.coupon.dto.CouponValidateResponseDTO("KLARHEIT80", "FIXED_AMOUNT", new BigDecimal("80.00"), new BigDecimal("80.00"));
+        
+        when(couponService.validateCoupon(any())).thenReturn(mockCouponResponse);
+        
+        when(prescriptionRepository.save(any(Prescription.class)))
+                .thenAnswer(invocation -> {
+                    Prescription p = invocation.getArgument(0);
+                    p.setId(1L);
+                    return p;
+                });
+                
+        when(orderRepository.save(any(Order.class)))
+                .thenAnswer(invocation -> {
+                    Order o = invocation.getArgument(0);
+                    o.setId(1L);
+                    o.setOrderNumber("KL-20260514120000-1234");
+                    return o;
+                });
+                
+        when(paymentService.initiatePayment(any(), any(), any()))
+                .thenReturn(new com.klarheit.backend.payment.PaymentInitiateResult("TX-MOCK", "weixin://wxpay/bizpayurl?pr=mock"));
+
+        OrderResponseDTO response = orderService.checkout(couponRequest, "test@example.com");
+
+        // base price (850) + lens (215 + 60) - discount (80) = 1045
+        assertThat(response.totalAmount()).isEqualByComparingTo(new BigDecimal("1045.00"));
+        assertThat(response.status()).isEqualTo("PENDING_PAYMENT");
+        assertThat(response.payData()).isEqualTo("weixin://wxpay/bizpayurl?pr=mock");
+    }
+
+    @Test
+    void completePaymentSuccessfullyTransitionsStatusToPaid() {
+        Order order = Order.builder()
+                .id(1L)
+                .orderNumber("KL-123")
+                .status("PENDING_PAYMENT")
+                .customerEmail("test@example.com")
+                .totalAmount(new BigDecimal("1045.00"))
+                .product(product)
+                .build();
+
+        when(orderRepository.findByOrderNumber("KL-123")).thenReturn(Optional.of(order));
+        
+        orderService.completePayment("KL-123", "GATEWAY-TX-456", "WECHAT");
+
+        assertThat(order.getStatus()).isEqualTo("PAID");
+        assertThat(order.getGatewayTransactionId()).isEqualTo("GATEWAY-TX-456");
+        assertThat(order.getPaidAt()).isNotNull();
+        assertThat(order.getPaymentChannel()).isEqualTo("WECHAT");
     }
 }

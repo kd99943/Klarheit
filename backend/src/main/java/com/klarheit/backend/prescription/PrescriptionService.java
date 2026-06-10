@@ -1,7 +1,7 @@
 package com.klarheit.backend.prescription;
 
 import com.klarheit.backend.auth.UserAccount;
-import com.klarheit.backend.auth.UserAccountRepository;
+import com.klarheit.backend.auth.UserService;
 import com.klarheit.backend.prescription.dto.PrescriptionPayloadDTO;
 import com.klarheit.backend.prescription.dto.PrescriptionResponseDTO;
 import lombok.extern.slf4j.Slf4j;
@@ -11,19 +11,18 @@ import org.springframework.stereotype.Service;
 @Service
 public class PrescriptionService {
     private final PrescriptionRepository prescriptionRepository;
-    private final UserAccountRepository userAccountRepository;
+    private final UserService userService;
 
-    public PrescriptionService(PrescriptionRepository prescriptionRepository, UserAccountRepository userAccountRepository) {
+    public PrescriptionService(PrescriptionRepository prescriptionRepository, UserService userService) {
         this.prescriptionRepository = prescriptionRepository;
-        this.userAccountRepository = userAccountRepository;
+        this.userService = userService;
     }
 
     public PrescriptionResponseDTO save(String email, PrescriptionPayloadDTO payload) {
-        UserAccount user = userAccountRepository.findByEmailIgnoreCase(normalizeEmail(email))
+        UserAccount user = userService.findByEmailIgnoreCase(normalizeEmail(email))
                 .orElseThrow(() -> new IllegalArgumentException("Authenticated user could not be found."));
 
         Prescription saved = prescriptionRepository.save(Prescription.builder()
-                .userEmail(user.getEmail())
                 .sphOd(payload.sphOd())
                 .sphOs(payload.sphOs())
                 .cylOd(payload.cylOd())
@@ -31,7 +30,7 @@ public class PrescriptionService {
                 .axisOd(payload.axisOd())
                 .axisOs(payload.axisOs())
                 .pd(payload.pd())
-                .user(user)
+                .userId(user.getId())
                 .build());
 
         log.info("Prescription saved for user: {}", user.getEmail());
@@ -39,15 +38,20 @@ public class PrescriptionService {
     }
 
     public PrescriptionResponseDTO getLatest(String email) {
-        Prescription prescription = prescriptionRepository.findTopByUserEmailOrderByIdDesc(normalizeEmail(email))
+        UserAccount user = userService.findByEmailIgnoreCase(normalizeEmail(email))
+                .orElseThrow(() -> new IllegalArgumentException("Authenticated user could not be found."));
+        Prescription prescription = prescriptionRepository.findTopByUserIdOrderByIdDesc(user.getId())
                 .orElseThrow(() -> new IllegalArgumentException("No prescription has been saved for this account."));
         return toResponse(prescription);
     }
 
     private PrescriptionResponseDTO toResponse(Prescription prescription) {
+        String email = userService.findById(prescription.getUserId())
+                .map(UserAccount::getEmail)
+                .orElse(null);
         return new PrescriptionResponseDTO(
                 prescription.getId(),
-                prescription.getUserEmail(),
+                email,
                 prescription.getSphOd(),
                 prescription.getSphOs(),
                 prescription.getCylOd(),

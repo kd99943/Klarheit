@@ -43,3 +43,9 @@
     -webkit-tap-highlight-color: transparent;
   }
 }
+
+/* QR scan line animation */
+@keyframes scan {
+  0%, 100% { top: 1.5rem; opacity: 0.3; }
+  50% { top: calc(100% - 1.5rem); opacity: 1; }
+}

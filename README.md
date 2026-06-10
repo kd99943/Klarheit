@@ -70,25 +70,24 @@ Klarheit/
 
 ## Implemented So Far
 
-- Frontend and backend are separated into independent applications
-- Product catalog is served through backend APIs
-- User registration, login, and current-user retrieval are implemented
-- Protected routes are used for sensitive flows like config and checkout
-- Order submission endpoint is present on the backend
-- Database schema for core optical commerce entities has been defined
-- Basic backend integration tests already exist
+- **Frontend and Backend Separation**: Built as independent React (Vite) and Spring Boot applications.
+- **WebAR Virtual Try-On**: Real-time camera stream overlay with face landmark tracking (via MediaPipe Face Landmarker) and 3D glasses model rendering (via Three.js). Supports real-time product switching and screenshot capture.
+- **i18n Localization**: Comprehensive translation support for English and Chinese across all key pages, with locale-aware price and date formatting.
+- **Advanced Optical Configuration (Config Lab)**: Intuitive step-by-step prescription entry with real-time validation and dynamic lens option fetching from backend APIs.
+- **User Authentication & Accounts**: JWT-based sign-in/registration drawer with rate-limiting, and an order history tab displaying personal orders.
+- **Payment Gateway Integration**: Secure WeChat Pay and Alipay Sandbox support. Backends process asynchronously signed Webhook signature validations and update database states.
+- **Coupon & Promotion Subsystem**: Rules-based promo code validation engine supporting both flat-rate discount amounts and percentage-based deductions. Integrates atomic database updates (`used_count < max_usages`) to prevent concurrency-related over-redemptions.
+- **Solid Backend Foundation**: Enterprise-ready Spring Boot design with structured logging, robust exception handlers, and JUnit/Vitest unit and integration test coverage.
+- **Database Migration**: Automatic database schema changes and initial data seeding managed by Flyway (MySQL-compatible).
+- **Docker Containerization**: Custom Dockerfiles for frontend (Nginx) and backend (Spring Boot), orchestrated via a root `docker-compose.yml` for local replications.
 
-## In Progress
+## Current Focus & Future Enhancements
 
-The project is not finished yet. Areas currently being improved include:
+The project is entering production readiness and looking to add features:
 
-- stronger frontend and backend contract alignment
-- richer checkout and prescription validation
-- more complete lens option workflow
-- production-safe environment configuration
-- removal of hardcoded local development secrets
-- better deployment readiness and documentation
-- improved UX details across config and virtual try-on flows
+- **Admin Portal & Catalog CMS**: Designing administrator views to modify frame availability, update 3D configs, and generate custom coupons dynamically.
+- **Email Receipt Delivery**: Configuring active credentials for Resend/SendGrid transactional email servers.
+- **Deployment Hardening**: Setting up GitHub Actions CI/CD pipelines for packaging release artifacts.
 
 ## Core Domain Model
 
@@ -157,6 +156,20 @@ JPA_DDL_AUTO=update
 Template values are documented in [backend/.env.example](/C:/Users/17761/Desktop/Klarheit/backend/.env.example).
 
 **Note:** Tests use H2 in-memory database for speed and isolation. Run tests with `-Dspring.profiles.active=test`.
+
+### Multi-Container Deployment (Docker Compose)
+
+You can spin up the entire stack (React frontend, Spring Boot backend, and MySQL database) with a single command:
+
+```bash
+docker-compose up --build -d
+```
+
+- **Frontend Web Server**: `http://localhost` (Port 80)
+- **Backend API Gateway**: `http://localhost:8080` (Port 8080)
+- **MySQL Database Server**: `localhost:3306` (Port 3306, with DB name `klarheit`)
+
+Ensure no other processes are binding to these ports before launching.
 
 ## Notes
 

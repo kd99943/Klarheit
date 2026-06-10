@@ -2,16 +2,23 @@ backend/target/
 front_end/node_modules/
 front_end/dist/
 
+# Environment & secrets
 .env
 .env.local
 .env.*.local
 backend/.env
 backend/*.secret
-backend/src/main/resources/application-local.yml
-*.log
 
+# IDE
 .claude/
 .superpowers/
 .worktrees/
 .vscode/
 .idea/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

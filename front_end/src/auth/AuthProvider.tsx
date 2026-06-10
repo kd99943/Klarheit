@@ -8,12 +8,11 @@ import {
   useState,
 } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
-  getStoredAuthToken,
   loginUser,
-  logoutStoredAuthToken,
+  logoutUser,
   registerUser,
-  setStoredAuthToken,
   fetchCurrentUser,
   type AuthResponse,
   type LoginRequest,
@@ -54,11 +53,11 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const [user, setUser] = useState<UserProfile | null>(null);
-  const [token, setToken] = useState<string | null>(getStoredAuthToken());
-  const [isAuthReady, setIsAuthReady] = useState(!getStoredAuthToken());
+  const [isAuthReady, setIsAuthReady] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>("signin");
   const [authError, setAuthError] = useState<string | null>(null);
@@ -66,28 +65,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<PendingNavigation | null>(null);
 
-  useEffect(() => {
-    if (!token) {
-      setUser(null);
-      setIsAuthReady(true);
-      return;
-    }
+  const token = user ? "cookie-authenticated" : null;
 
+  useEffect(() => {
     let isCancelled = false;
-    setIsAuthReady(false);
 
     async function loadCurrentUser() {
       try {
         const currentUser = await fetchCurrentUser();
         if (!isCancelled) {
           setUser(currentUser);
-          setIsAuthReady(true);
         }
       } catch {
         if (!isCancelled) {
-          logoutStoredAuthToken();
-          setToken(null);
           setUser(null);
+        }
+      } finally {
+        if (!isCancelled) {
           setIsAuthReady(true);
         }
       }
@@ -98,11 +92,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       isCancelled = true;
     };
-  }, [token]);
+  }, []);
 
   const applyAuthResponse = useCallback((response: AuthResponse) => {
-    setStoredAuthToken(response.token);
-    setToken(response.token);
     setUser(response.user);
     setIsAuthReady(true);
     setAuthError(null);
@@ -136,17 +128,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const requireAuth = useCallback((pending?: PendingNavigation, message?: string) => {
-    if (token && user) {
+    if (user) {
       return true;
     }
 
     openAuthModal({
       mode: "signin",
-      message: message ?? "Sign in to continue your custom order.",
+      message: message ?? t("auth.defaultMessage"),
       pendingNavigation: pending,
     });
     return false;
-  }, [openAuthModal, token, user]);
+  }, [openAuthModal, t, user]);
 
   async function login(payload: LoginRequest) {
     setIsSubmittingAuth(true);
@@ -155,7 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await loginUser(payload);
       applyAuthResponse(response);
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : "Unable to sign in.");
+      setAuthError(error instanceof Error ? error.message : t("auth.unableToSignIn"));
     } finally {
       setIsSubmittingAuth(false);
     }
@@ -168,16 +160,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await registerUser(payload);
       applyAuthResponse(response);
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : "Unable to create your account.");
+      setAuthError(error instanceof Error ? error.message : t("auth.unableToCreateAccount"));
     } finally {
       setIsSubmittingAuth(false);
     }
   }
 
-  function logout() {
-    logoutStoredAuthToken();
+  async function logout() {
+    try {
+      await logoutUser();
+    } catch (error) {
+      console.error("Logout failed on backend", error);
+    }
     setUser(null);
-    setToken(null);
     setIsAuthReady(true);
     setPendingNavigation(null);
     setIsAuthModalOpen(false);
@@ -189,7 +184,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AuthContextValue>(() => ({
     user,
     token,
-    isAuthenticated: Boolean(user && token),
+    isAuthenticated: Boolean(user),
     isAuthReady,
     isAuthModalOpen,
     authMode,

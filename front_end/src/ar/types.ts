@@ -12,7 +12,7 @@ export type ARExperienceStatus =
   | "captured"
   | "error";
 
-export type ARFinishId = "matte-black" | "titanium" | "rose-gold";
+export type ARFinishId = string;
 
 export interface FaceLandmark {
   x: number;

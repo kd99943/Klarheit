@@ -135,7 +135,7 @@ export function AuthDrawer() {
                 onChange={(event) => setSignInForm((current) => ({ ...current, email: event.target.value }))}
                 type="email"
                 required
-                placeholder="client@example.com"
+                placeholder={t("auth.emailPlaceholder")}
                 className="w-full bg-transparent border-0 border-b border-slate-300 py-3 px-0 focus:ring-0 focus:border-brand-primary outline-none transition-colors text-lg font-medium text-brand-primary rounded-none placeholder:text-slate-300"
               />
             </div>
@@ -198,7 +198,7 @@ export function AuthDrawer() {
                 onChange={(event) => setRegisterForm((current) => ({ ...current, email: event.target.value }))}
                 type="email"
                 required
-                placeholder="client@example.com"
+                placeholder={t("auth.emailPlaceholder")}
                 className="w-full bg-transparent border-0 border-b border-slate-300 py-3 px-0 focus:ring-0 focus:border-brand-primary outline-none transition-colors text-lg font-medium text-brand-primary rounded-none placeholder:text-slate-300"
               />
             </div>

@@ -6,10 +6,13 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+// Exchange rate: 1 USD = X CNY. Configurable via env var.
+const CNY_RATE = Number(import.meta.env.VITE_CNY_EXCHANGE_RATE) || 7.3;
+
 export function formatPrice(amount: number): string {
   const lng = i18n.language;
   if (lng === "zh") {
-    return new Intl.NumberFormat("zh-CN", { style: "currency", currency: "CNY", maximumFractionDigits: 0 }).format(amount * 7.3);
+    return new Intl.NumberFormat("zh-CN", { style: "currency", currency: "CNY", maximumFractionDigits: 0 }).format(amount * CNY_RATE);
   }
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(amount);
 }

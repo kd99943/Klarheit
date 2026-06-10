@@ -10,8 +10,8 @@ export function LandingPage() {
         <div className="absolute inset-0 z-0 bg-surface-offwhite">
           <img
             className="w-full h-full object-cover opacity-20 mix-blend-luminosity"
-            alt="Abstract minimal composition of translucent glass surfaces"
-            src="https://lh3.googleusercontent.com/aida-public/AB6AXuBbg0BvCGzar79JhHvOW2yp9ebM_f8m99eRPPsLoUxsRvHsu-6yUn9K_l167-aQYawDGASWbzQ-Rt0pmWrBYxa-qHY6asAHJpbNqO-gBd6wkj_XQl83d_IkNYQ7u3-LXmVpYm36uqKeKVzyYT5Lg7Yb2n5d3q4BDy_RZrlv9xj-PpJsBzlnyutm9UxAhPQMJbqFBjm3SjZTWLseD5BAImx9atjF5sU5A_sFcAjfIgl2Qme-oJoFUBsWOAW8__y_s8ygo2WmbNFpRw"
+            alt={t("alt.heroBg")}
+            src="/images/lucent_v1.png"
           />
         </div>
         <div className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.08),_transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.08),rgba(249,250,251,0.95))]" />
@@ -101,8 +101,8 @@ export function LandingPage() {
             <div className="lg:col-span-8 relative min-h-[400px] sm:min-h-[600px] bg-slate-50 rounded-xl border border-slate-200/50 overflow-hidden group order-1 lg:order-2">
               <img
                 className="w-full h-full object-cover mix-blend-multiply opacity-80"
-                alt="Minimalist titanium wireframe glasses"
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuB5PNc7Uu61y6GSyVZ9LgDxCAUnNCMlrFL57NtjWtDMd02mY5WOmi_6ob7FtTxa74Rq_DaFKNX7ZkXNvRBJlTzcRov4cu-FNkHNPEGokk8I_t3E4-BWU2EyP-rnHyyXXpA1yh59ugBSHeaHIipxZov6cQKFOyfFU5Xa-2aGX135sP9WMiNxMKH9peDMNYfA0M9VWyLCH-NYPQccjKNnyoeMuvVkzqbOHFjipueWNwTZ50Br0owb9VrepxqWIT2WKT5MXQjrYCIn3Q"
+                alt={t("alt.wireframeGlasses")}
+                src="/images/aero_x1.png"
               />
               {/* Annotations */}
               <div className="absolute top-[25%] left-[20%] sm:left-[30%] flex items-center gap-2">
@@ -130,8 +130,8 @@ export function LandingPage() {
           <div className="absolute inset-0 bg-gradient-to-b from-[#0A1121] to-brand-primary opacity-90 z-10"></div>
           <img
             className="w-full h-full object-cover z-0 opacity-40 mix-blend-screen"
-            alt="Optical glass prisms"
-            src="https://lh3.googleusercontent.com/aida-public/AB6AXuAZ2Q6yFw45bUXMEMyOMUAuzu9UTUXP7VQ_8QGoZxEDpJ9JAmyg3NEfeVUNgQ0xye9aVeuAYCUn-XaKvMwMgrkKqk4F9_XVKTETwmU96j-t2Nq-NCAPWAOVHNvd3pSc6fsrMWSXstJSD1VsZCVOe_rHVLqkrp5VlRDFdzLxfwZUINcmCo_KE__4oOjad0a1oDDKCaDmXXwkSj-EPsQIPwJiwvSQiVUCSkx52f_Dhm4flQL58hMnCV9mL-zlYRGN0jEsMlR1Xe7KLg"
+            alt={t("alt.glassPrisms")}
+            src="/images/orbit_t4.png"
           />
         </div>
         <div className="max-w-[1440px] mx-auto px-8 lg:px-16 relative z-20">

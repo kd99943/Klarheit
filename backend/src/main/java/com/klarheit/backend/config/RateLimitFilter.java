@@ -9,21 +9,55 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+/**
+ * Rate limiter for authentication endpoints (login/register).
+ *
+ * <p>Uses an in-memory bucket-per-IP model via Bucket4j. This is
+ * sufficient for a single-instance deployment. For horizontal scaling,
+ * replace with a Redis-backed rate limiter (e.g. Spring Cloud Gateway
+ * or bucket4j-redis).</p>
+ *
+ * <p>IP resolution uses {@code request.getRemoteAddr()} to prevent
+ * X-Forwarded-For spoofing. When behind a reverse proxy, configure
+ * the proxy to set {@code X-Forwarded-For} and add a
+ * {@code ForwardedHeaderFilter} or trusted-proxy configuration.</p>
+ */
 @Slf4j
 @Component
 public class RateLimitFilter extends OncePerRequestFilter {
 
-    private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
+    private static final int MAX_ENTRIES = 4096;
+    private final boolean enabled;
+    private final int capacity;
+    private final int refillPerMinute;
+    private final Map<String, Bucket> buckets = java.util.Collections.synchronizedMap(
+            new java.util.LinkedHashMap<>(MAX_ENTRIES + 1, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<String, Bucket> eldest) {
+                    return size() > MAX_ENTRIES;
+                }
+            }
+    );
+
+    public RateLimitFilter(
+            @Value("${app.rate-limit.enabled:true}") boolean enabled,
+            @Value("${app.rate-limit.capacity:10}") int capacity,
+            @Value("${app.rate-limit.refill-per-minute:10}") int refillPerMinute) {
+        this.enabled = enabled;
+        this.capacity = capacity;
+        this.refillPerMinute = refillPerMinute;
+    }
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
+        if (!enabled) return true;
         String path = request.getRequestURI();
         return !path.equals("/api/v1/auth/login") && !path.equals("/api/v1/auth/register");
     }
@@ -48,17 +82,15 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private Bucket createBucket(String key) {
         Bandwidth limit = Bandwidth.builder()
-                .capacity(10)
-                .refillGreedy(10, Duration.ofMinutes(1))
+                .capacity(capacity)
+                .refillGreedy(refillPerMinute, Duration.ofMinutes(1))
                 .build();
         return Bucket.builder().addLimit(limit).build();
     }
 
     private String getClientIp(HttpServletRequest request) {
-        String xForwardedFor = request.getHeader("X-Forwarded-For");
-        if (xForwardedFor != null && !xForwardedFor.isBlank()) {
-            return xForwardedFor.split(",")[0].trim();
-        }
+        // Only trust X-Forwarded-For when behind a known proxy; for now use remote addr
+        // to prevent IP spoofing. In production, configure TrustedProxyFilter.
         return request.getRemoteAddr();
     }
 }

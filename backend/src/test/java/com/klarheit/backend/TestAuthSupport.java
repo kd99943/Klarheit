@@ -27,7 +27,8 @@ final class TestAuthSupport {
                                 """.formatted(email)))
                 .andExpect(status().isOk())
                 .andReturn();
-        return readJson(result).get("token").asText();
+        jakarta.servlet.http.Cookie cookie = result.getResponse().getCookie("klarheit_auth_token");
+        return cookie != null ? cookie.getValue() : null;
     }
 
     static JsonNode readJson(MvcResult result) throws Exception {

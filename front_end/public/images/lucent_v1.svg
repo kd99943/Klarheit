@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400" width="100%" height="100%">
+  <defs>
+    <!-- HEV Amber/Yellow Filter Lens Gradient -->
+    <linearGradient id="amberLensGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24" stop-opacity="0.15" />
+      <stop offset="60%" stop-color="#f59e0b" stop-opacity="0.06" />
+      <stop offset="100%" stop-color="#ea580c" stop-opacity="0.12" />
+    </linearGradient>
+    <!-- Translucent Crystal Frame Shader -->
+    <linearGradient id="crystalFrameGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.9" />
+      <stop offset="50%" stop-color="#f8fafc" stop-opacity="0.65" />
+      <stop offset="100%" stop-color="#cbd5e1" stop-opacity="0.8" />
+    </linearGradient>
+    <!-- Visible Inner Core Wire (Gold) -->
+    <linearGradient id="coreWireGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#f59e0b" />
+      <stop offset="50%" stop-color="#d97706" />
+      <stop offset="100%" stop-color="#b45309" />
+    </linearGradient>
+    <filter id="glassShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#64748b" flood-opacity="0.04" />
+    </filter>
+  </defs>
+
+  <g filter="url(#glassShadow)">
+    <!-- Translucent Crystal Temples with Inner Gold Core Wires -->
+    <!-- Gold Core Wires first (behind the plastic outer shell) -->
+    <path d="M 115 178 Q 75 175, 48 232" fill="none" stroke="url(#coreWireGrad)" stroke-width="2.5" stroke-linecap="round" />
+    <path d="M 485 178 Q 525 175, 552 232" fill="none" stroke="url(#coreWireGrad)" stroke-width="2.5" stroke-linecap="round" />
+    <!-- Transparent Plastic Outer Shell of Temples -->
+    <path d="M 115 178 Q 75 175, 48 232" fill="none" stroke="url(#crystalFrameGrad)" stroke-width="11" stroke-linecap="round" opacity="0.85" />
+    <path d="M 485 178 Q 525 175, 552 232" fill="none" stroke="url(#crystalFrameGrad)" stroke-width="11" stroke-linecap="round" opacity="0.85" />
+    
+    <!-- Left Translucent Rim & HEV Lens -->
+    <rect x="125" y="146" width="150" height="92" rx="22" fill="url(#amberLensGrad)" />
+    <rect x="125" y="146" width="150" height="92" rx="22" fill="none" stroke="url(#crystalFrameGrad)" stroke-width="13" stroke-linejoin="round" />
+    <!-- Fine inner frame details for crystal reflection -->
+    <rect x="125" y="146" width="150" height="92" rx="22" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round" opacity="0.8" />
+
+    <!-- Right Translucent Rim & HEV Lens -->
+    <rect x="325" y="146" width="150" height="92" rx="22" fill="url(#amberLensGrad)" />
+    <rect x="325" y="146" width="150" height="92" rx="22" fill="none" stroke="url(#crystalFrameGrad)" stroke-width="13" stroke-linejoin="round" />
+    <!-- Fine inner frame details for crystal reflection -->
+    <rect x="325" y="146" width="150" height="92" rx="22" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round" opacity="0.8" />
+
+    <!-- Transparent Bridge -->
+    <path d="M 268 174 Q 300 167, 332 174" fill="none" stroke="url(#crystalFrameGrad)" stroke-width="14" stroke-linecap="round" />
+    <path d="M 268 174 Q 300 167, 332 174" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" opacity="0.8" />
+
+    <!-- Golden Hinge Pins visible inside the crystal -->
+    <circle cx="138" cy="172" r="2" fill="url(#coreWireGrad)" />
+    <circle cx="462" cy="172" r="2" fill="url(#coreWireGrad)" />
+
+    <!-- Subtle Glare on Crystal Frame -->
+    <path d="M 148 158 Q 200 152, 240 158" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" opacity="0.5" />
+    <path d="M 348 158 Q 400 152, 440 158" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" opacity="0.5" />
+  </g>
+</svg>

@@ -25,6 +25,7 @@
   "steps.review.label": "Review",
   "steps.review.description": "Summary before order",
   "summary.frame": "Frame",
+  "summary.finish": "Frame Color/Finish",
   "summary.selectedOptions": "Selected Options",
   "summary.optionCount": "{{count}} option",
   "summary.optionCount_plural": "{{count}} options",
@@ -32,5 +33,19 @@
   "summary.totalValue": "Total Value",
   "summary.premium": "PREMIUM",
   "nextStep": "Next Step",
-  "initializeOrder": "Initialize Order"
+  "initializeOrder": "Initialize Order",
+  "lens": {
+    "HIGH_INDEX_174": {
+      "label": "Custom Lenses (High-Index)",
+      "description": "Thin 1.74 index lenses for stronger prescriptions."
+    },
+    "AR_ONYX": {
+      "label": "Onyx AR Coating",
+      "description": "Premium anti-reflective coating for glare reduction."
+    },
+    "HEV_BLUE": {
+      "label": "HEV Filter",
+      "description": "Blue light filtering treatment for daily screen use."
+    }
+  }
 }

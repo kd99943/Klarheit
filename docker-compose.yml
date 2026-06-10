@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.4
+    container_name: klarheit-db
+    restart: always
+    environment:
+      MYSQL_DATABASE: klarheit
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-changeme_root_password}
+      MYSQL_USER: klarheit_app
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-changeme_app_password}
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_volume_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-changeme_root_password}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: klarheit-api
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://db:3306/klarheit?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      - SPRING_DATASOURCE_USERNAME=klarheit_app
+      - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD:-changeme_app_password}
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
+      - SPRING_PROFILES_ACTIVE=prod
+      - APP_JWT_SECRET=${APP_JWT_SECRET}
+      - APP_FRONTEND_URL=${APP_FRONTEND_URL:-http://localhost}
+      - APP_RESEND_API_KEY=${RESEND_API_KEY:-}
+      - APP_RESEND_FROM_EMAIL=${RESEND_FROM_EMAIL:-orders@klarheit.com}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./front_end
+      dockerfile: Dockerfile
+    container_name: klarheit-web
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  db_volume_data:

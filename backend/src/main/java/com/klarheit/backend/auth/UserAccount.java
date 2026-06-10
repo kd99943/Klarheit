@@ -1,19 +1,13 @@
 package com.klarheit.backend.auth;
 
-import com.klarheit.backend.order.Order;
-import com.klarheit.backend.prescription.Prescription;
-import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.OneToMany;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
 @Entity
 @Table(name = "users")
@@ -37,11 +31,7 @@ public class UserAccount {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
-    private List<Order> orders = new ArrayList<>();
 
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
-    private List<Prescription> prescriptions = new ArrayList<>();
 
     @PrePersist
     void onCreate() {
@@ -60,16 +50,12 @@ public class UserAccount {
     public String getFirstName() { return firstName; }
     public String getLastName() { return lastName; }
     public LocalDateTime getCreatedAt() { return createdAt; }
-    public List<Order> getOrders() { return orders; }
-    public List<Prescription> getPrescriptions() { return prescriptions; }
     public void setId(Long id) { this.id = id; }
     public void setEmail(String email) { this.email = email; }
     public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
     public void setFirstName(String firstName) { this.firstName = firstName; }
     public void setLastName(String lastName) { this.lastName = lastName; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
-    public void setOrders(List<Order> orders) { this.orders = orders; }
-    public void setPrescriptions(List<Prescription> prescriptions) { this.prescriptions = prescriptions; }
 
     public static final class Builder {
         private final UserAccount instance = new UserAccount();
@@ -79,8 +65,6 @@ public class UserAccount {
         public Builder firstName(String firstName) { instance.firstName = firstName; return this; }
         public Builder lastName(String lastName) { instance.lastName = lastName; return this; }
         public Builder createdAt(LocalDateTime createdAt) { instance.createdAt = createdAt; return this; }
-        public Builder orders(List<Order> orders) { instance.orders = orders; return this; }
-        public Builder prescriptions(List<Prescription> prescriptions) { instance.prescriptions = prescriptions; return this; }
         public UserAccount build() { return instance; }
     }
 }

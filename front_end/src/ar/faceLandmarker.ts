@@ -8,13 +8,12 @@ export interface FaceLandmarkerDetector {
 export async function createFaceLandmarker(): Promise<FaceLandmarkerDetector> {
   const vision = await import("@mediapipe/tasks-vision");
   const filesetResolver = await vision.FilesetResolver.forVisionTasks(
-    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
+    "/wasm"
   );
 
   return vision.FaceLandmarker.createFromOptions(filesetResolver, {
     baseOptions: {
-      modelAssetPath:
-        "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task",
+      modelAssetPath: "/models/face_landmarker.task",
       delegate: "GPU",
     },
     runningMode: "VIDEO",

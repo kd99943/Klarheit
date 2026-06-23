@@ -72,19 +72,32 @@ vi.mock("../ar/ARTryOnCanvas", () => ({
 
 vi.mock("../services/api", () => ({
   fetchArConfigs: vi.fn().mockResolvedValue([]),
+  fetchProducts: vi.fn().mockResolvedValue([
+    {
+      id: 1,
+      name: "AERO X1",
+      material: "Grade 5 Titanium",
+      nameEn: "AERO X1",
+      nameZh: "AERO X1",
+      materialEn: "Grade 5 Titanium",
+      materialZh: "5级钛金属",
+      basePrice: 850.00,
+      imageUrl: "/images/aero_x1.png"
+    }
+  ]),
 }));
 
 import { ARVirtualStudio } from "./ARVirtualStudio";
 
 describe("ARVirtualStudio", () => {
-  test("shows unsupported fallback instead of claiming live tracking", () => {
+  test("shows unsupported fallback instead of claiming live tracking", async () => {
     render(
       <BrowserRouter>
         <ARVirtualStudio />
       </BrowserRouter>
     );
 
-    const matches = screen.getAllByText(/camera-capable browser/i);
+    const matches = await screen.findAllByText(/camera-capable browser/i);
     expect(matches.length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText("Live AR Try-On Active")).not.toBeInTheDocument();
   });

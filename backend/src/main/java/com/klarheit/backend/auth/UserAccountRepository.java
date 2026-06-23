@@ -6,4 +6,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface UserAccountRepository extends JpaRepository<UserAccount, Long> {
     Optional<UserAccount> findByEmailIgnoreCase(String email);
     boolean existsByEmailIgnoreCase(String email);
+    Optional<UserAccount> findByPhone(String phone);
+    boolean existsByPhone(String phone);
 }

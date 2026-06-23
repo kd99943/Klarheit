@@ -10,10 +10,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Recover;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.ResourceAccessException;
 
 @Service
 public class EmailService {
@@ -35,7 +37,7 @@ public class EmailService {
 
     @Async
     @Retryable(
-        retryFor = { Exception.class },
+        retryFor = { ResourceAccessException.class, org.springframework.web.client.HttpServerErrorException.class },
         maxAttempts = 3,
         backoff = @Backoff(delay = 2000, multiplier = 2.0)
     )
@@ -90,6 +92,20 @@ public class EmailService {
                 .retrieve()
                 .toBodilessEntity();
         log.info("Order confirmation email successfully sent to {} for order {}", to, orderNumber);
+    }
+
+    @Recover
+    public void recoverSendOrderConfirmation(Exception e, String to, String orderNumber, String productName, String totalAmount) {
+        log.error("Failed to send order confirmation email to {} for order {} after retries. Falling back to local preview.",
+                to, orderNumber, e);
+        String htmlBody = """
+                <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+                  <h1>Order Confirmed — %s</h1>
+                  <p>Product: %s</p>
+                  <p>Total: $%s</p>
+                </div>
+                """.formatted(orderNumber, productName, totalAmount);
+        writeEmailPreview(orderNumber, htmlBody);
     }
 
     private void writeEmailPreview(String orderNumber, String htmlContent) {

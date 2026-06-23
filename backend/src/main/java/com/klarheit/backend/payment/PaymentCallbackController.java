@@ -2,8 +2,14 @@ package com.klarheit.backend.payment;
 
 import com.klarheit.backend.order.OrderService;
 import jakarta.servlet.http.HttpServletRequest;
+import java.nio.charset.StandardCharsets;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.TreeMap;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
@@ -21,6 +27,12 @@ public class PaymentCallbackController {
     @Value("${app.alipay.public-key:}")
     private String alipayPublicKey;
 
+    @Value("${app.payment.callback-secret:}")
+    private String callbackSecret;
+
+    @Value("${app.wechat.api-key:}")
+    private String wechatApiKey;
+
     @Value("${app.frontend-url:http://localhost:5173}")
     private String frontendUrl;
 
@@ -37,22 +49,25 @@ public class PaymentCallbackController {
             params.put(name, String.join(",", values));
         }
 
-        log.info("Received Alipay callback notification: {}", params);
+        // Do not log raw params in production — may contain sensitive data
+        log.info("Received Alipay callback for trade_no: {}", params.get("trade_no"));
 
         String outTradeNo = params.get("out_trade_no");
         String tradeStatus = params.get("trade_status");
         String tradeNo = params.get("trade_no");
 
-        if (alipayPublicKey != null && !alipayPublicKey.isBlank()) {
-            try {
-                // In production or sandbox with real keys:
-                // boolean signVerified = AlipaySignature.rsaCheckV1(params, alipayPublicKey, "UTF-8", "RSA2");
-                // For simplified MVP sandbox/mock fallback:
-                log.info("Alipay key is present, checking signature simulation...");
-            } catch (Exception e) {
-                log.error("Error during Alipay signature validation", e);
-                return ResponseEntity.badRequest().body("failure");
-            }
+        // --- Signature verification ---
+        // Production: integrate Alipay SDK and call:
+        //   boolean signVerified = AlipaySignature.rsaCheckV1(params, alipayPublicKey, "UTF-8", "RSA2");
+        // For sandbox/MVP: verify HMAC-SHA256 signature using shared callback secret.
+        String sign = params.get("sign");
+        if (callbackSecret == null || callbackSecret.isBlank()) {
+            log.warn("Alipay callback rejected: no callback secret configured (app.payment.callback-secret)");
+            return ResponseEntity.badRequest().body("failure");
+        }
+        if (!verifyHmacSignature(params, sign, callbackSecret)) {
+            log.warn("Alipay callback rejected: signature verification failed for out_trade_no: {}", outTradeNo);
+            return ResponseEntity.badRequest().body("failure");
         }
 
         if ("TRADE_SUCCESS".equals(tradeStatus) && outTradeNo != null) {
@@ -65,12 +80,26 @@ public class PaymentCallbackController {
 
     @PostMapping("/wechat")
     public ResponseEntity<String> handleWeChatCallback(@RequestBody String xmlData) {
-        log.info("Received WeChat Pay callback notification: {}", xmlData);
+        log.info("Received WeChat Pay callback notification");
 
         // Basic XML field extraction for sandbox/mock usage
         String outTradeNo = extractXmlField(xmlData, "out_trade_no");
         String transactionId = extractXmlField(xmlData, "transaction_id");
         String resultCode = extractXmlField(xmlData, "result_code");
+        String sign = extractXmlField(xmlData, "sign");
+
+        // --- Signature verification ---
+        // Production: verify HMAC-MD5 signature using WeChat API key per WeChat Pay docs.
+        // For sandbox/MVP: verify using shared callback secret.
+        String verifyKey = (wechatApiKey != null && !wechatApiKey.isBlank()) ? wechatApiKey : callbackSecret;
+        if (verifyKey == null || verifyKey.isBlank()) {
+            log.warn("WeChat callback rejected: no verification key configured");
+            return ResponseEntity.ok("<xml><return_code><![CDATA[FAIL]]></return_code><return_msg><![CDATA[Invalid signature]]></return_msg></xml>");
+        }
+        if (!verifyHmacSignatureXml(xmlData, sign, verifyKey)) {
+            log.warn("WeChat callback rejected: signature verification failed for out_trade_no: {}", outTradeNo);
+            return ResponseEntity.ok("<xml><return_code><![CDATA[FAIL]]></return_code><return_msg><![CDATA[Invalid signature]]></return_msg></xml>");
+        }
 
         if ("SUCCESS".equals(resultCode) && outTradeNo != null) {
             String txId = transactionId != null ? transactionId : "WECHAT-TX-" + System.currentTimeMillis();
@@ -90,6 +119,67 @@ public class PaymentCallbackController {
         int end = xml.indexOf(closeTag, start);
         if (end < 0) return null;
         return xml.substring(start, end);
+    }
+
+    /**
+     * Verifies HMAC-SHA256 signature for Alipay-style callback params.
+     * Builds a sorted key=value string from all params (excluding "sign" and "sign_type"),
+     * then compares the HMAC-SHA256 digest against the provided signature.
+     */
+    private boolean verifyHmacSignature(Map<String, String> params, String sign, String secret) {
+        if (sign == null || sign.isBlank()) return false;
+
+        TreeMap<String, String> sorted = new TreeMap<>();
+        params.forEach((k, v) -> {
+            if (!"sign".equals(k) && !"sign_type".equals(k) && v != null && !v.isBlank()) {
+                sorted.put(k, v);
+            }
+        });
+        String payload = String.join("&", sorted.entrySet().stream()
+                .map(e -> e.getKey() + "=" + e.getValue())
+                .toList());
+        String computed = hmacSha256(payload, secret);
+        return sign.equals(computed);
+    }
+
+    /**
+     * Verifies HMAC-SHA256 signature for WeChat-style XML callbacks.
+     * Extracts all XML fields (excluding "sign"), sorts them, concatenates as key=value&...,
+     * then compares HMAC-SHA256 digest against the provided sign.
+     */
+    private boolean verifyHmacSignatureXml(String xmlData, String sign, String secret) {
+        if (sign == null || sign.isBlank()) return false;
+
+        // Extract all simple XML fields from the notification
+        TreeMap<String, String> fields = new TreeMap<>();
+        String[] knownFields = {"out_trade_no", "transaction_id", "result_code", "return_code",
+                "appid", "mch_id", "nonce_str", "total_amount"};
+        for (String field : knownFields) {
+            String value = extractXmlField(xmlData, field);
+            if (value != null && !value.isBlank()) {
+                fields.put(field, value);
+            }
+        }
+        String payload = String.join("&", fields.entrySet().stream()
+                .map(e -> e.getKey() + "=" + e.getValue())
+                .toList());
+        String computed = hmacSha256(payload, secret);
+        return sign.equals(computed);
+    }
+
+    private String hmacSha256(String data, String secret) {
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            byte[] hash = mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder();
+            for (byte b : hash) {
+                hex.append(String.format("%02x", b));
+            }
+            return hex.toString();
+        } catch (NoSuchAlgorithmException | InvalidKeyException e) {
+            throw new IllegalStateException("HMAC-SHA256 not available", e);
+        }
     }
 
     @PostMapping("/mock-trigger")

@@ -77,7 +77,7 @@ export function MyAccountPage() {
             <SectionCard eyebrow={t("quickActions.eyebrow")} title={t("quickActions.title")} description={t("quickActions.description")} className="xl:sticky xl:top-28">
               <div className="flex flex-col gap-3">
                 {[
-                  { icon: UserRound, label: t("quickActions.profileDetails"), meta: t("quickActions.profileDetailsMeta") },
+                  { icon: UserRound, label: t("quickActions.profileDetails"), meta: t("quickActions.profileDetailsMeta"), to: "/profile-details" },
                   { icon: CreditCard, label: t("quickActions.billingCheckout"), meta: t("quickActions.billingCheckoutMeta"), to: "/checkout" },
                   { icon: CalendarDays, label: t("quickActions.appointments"), meta: t("quickActions.appointmentsMeta") },
                   { icon: MapPin, label: t("quickActions.savedAddresses"), meta: t("quickActions.savedAddressesMeta") },

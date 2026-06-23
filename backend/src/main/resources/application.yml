@@ -21,6 +21,7 @@ spring:
   flyway:
     enabled: ${FLYWAY_ENABLED:true}
     locations: classpath:db/migration
+    repair-on-migrate: true
   jackson:
     time-zone: ${APP_TIME_ZONE:UTC}
 
@@ -41,6 +42,15 @@ app:
     app-id: ${WECHAT_APP_ID:}
     mch-id: ${WECHAT_MCH_ID:}
     api-key: ${WECHAT_API_KEY:}
+  payment:
+    callback-secret: ${PAYMENT_CALLBACK_SECRET:}
+  sms:
+    provider: ${SMS_PROVIDER:mock}
+    alibaba:
+      access-key-id: ${SMS_ACCESS_KEY_ID:}
+      access-key-secret: ${SMS_ACCESS_KEY_SECRET:}
+      sign-name: ${SMS_SIGN_NAME:Klarheit}
+      template-code: ${SMS_TEMPLATE_CODE:}
   rate-limit:
     enabled: ${RATE_LIMIT_ENABLED:true}
     capacity: ${RATE_LIMIT_CAPACITY:10}

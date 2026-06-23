@@ -42,5 +42,15 @@
   "error.somethingWentWrong": "Something went wrong",
   "error.unexpectedError": "An unexpected error occurred while rendering this page. Please try refreshing.",
   "error.refreshPage": "Refresh Page",
-  "auth.emailPlaceholder": "client@example.com"
+  "auth.emailPlaceholder": "client@example.com",
+  "auth.forgotPassword": "Forgot password?",
+  "auth.resetPassword": "Reset Password",
+  "auth.resetPasswordDesc": "Enter your linked phone number to reset your password via SMS verification.",
+  "auth.newPassword": "New Password",
+  "auth.confirmNewPassword": "Confirm New Password",
+  "auth.passwordResetSuccess": "Password reset successfully. Please sign in with your new password.",
+  "auth.backToSignIn": "Back to Sign In",
+  "auth.passwordMismatch": "Passwords do not match",
+  "auth.phoneRequired": "Phone number is required",
+  "auth.codeRequired": "Verification code is required"
 }

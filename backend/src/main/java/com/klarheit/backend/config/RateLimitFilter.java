@@ -55,11 +55,26 @@ public class RateLimitFilter extends OncePerRequestFilter {
         this.refillPerMinute = refillPerMinute;
     }
 
+    private static final java.util.Set<String> RATE_LIMITED_PATHS = java.util.Set.of(
+            "/api/v1/auth/login",
+            "/api/v1/auth/register",
+            "/api/v1/orders/checkout",
+            "/api/v1/coupons/validate"
+    );
+
+    private static final java.util.Set<String> RATE_LIMITED_PREFIXES = java.util.Set.of(
+            "/api/v1/payments/callback/"
+    );
+
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         if (!enabled) return true;
         String path = request.getRequestURI();
-        return !path.equals("/api/v1/auth/login") && !path.equals("/api/v1/auth/register");
+        if (RATE_LIMITED_PATHS.contains(path)) return false;
+        for (String prefix : RATE_LIMITED_PREFIXES) {
+            if (path.startsWith(prefix)) return false;
+        }
+        return true;
     }
 
     @Override

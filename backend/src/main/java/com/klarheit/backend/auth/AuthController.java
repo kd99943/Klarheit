@@ -3,7 +3,9 @@ package com.klarheit.backend.auth;
 import com.klarheit.backend.auth.dto.AuthResponseDTO;
 import com.klarheit.backend.auth.dto.LoginRequestDTO;
 import com.klarheit.backend.auth.dto.RegisterRequestDTO;
+import com.klarheit.backend.auth.dto.ResetPasswordRequestDTO;
 import com.klarheit.backend.auth.dto.UserProfileDTO;
+import com.klarheit.backend.sms.VerificationCodeService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -17,9 +19,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/auth")
 public class AuthController {
     private final AuthService authService;
+    private final VerificationCodeService verificationCodeService;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, VerificationCodeService verificationCodeService) {
         this.authService = authService;
+        this.verificationCodeService = verificationCodeService;
     }
 
     @PostMapping("/register")
@@ -43,7 +47,7 @@ public class AuthController {
                 .secure(true)
                 .path("/")
                 .maxAge(0)
-                .sameSite("Strict")
+                .sameSite("Lax")
                 .build();
         response.addHeader(org.springframework.http.HttpHeaders.SET_COOKIE, cookie.toString());
         return ResponseEntity.ok().build();
@@ -54,13 +58,23 @@ public class AuthController {
         return ResponseEntity.ok(authService.getCurrentUser(authentication.getName()));
     }
 
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Void> forgotPassword(@Valid @RequestBody ResetPasswordRequestDTO request) {
+        boolean valid = verificationCodeService.verifyCode(request.phone(), request.code());
+        if (!valid) {
+            throw new IllegalArgumentException("验证码错误");
+        }
+        authService.resetPassword(request.phone(), request.newPassword());
+        return ResponseEntity.ok().build();
+    }
+
     private void setJwtCookie(jakarta.servlet.http.HttpServletResponse response, String token) {
         org.springframework.http.ResponseCookie cookie = org.springframework.http.ResponseCookie.from("klarheit_auth_token", token)
                 .httpOnly(true)
                 .secure(true)
                 .path("/")
                 .maxAge(86400) // 1 day
-                .sameSite("Strict")
+                .sameSite("Lax")
                 .build();
         response.addHeader(org.springframework.http.HttpHeaders.SET_COOKIE, cookie.toString());
     }

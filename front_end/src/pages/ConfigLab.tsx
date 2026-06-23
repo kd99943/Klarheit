@@ -1,9 +1,9 @@
 // front_end/src/pages/ConfigLab.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronRight, Sparkles } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { AR_FRAME_CATALOG } from "../ar/frameCatalog";
+import { AR_FRAME_CATALOG, getFrameConfigForProduct } from "../ar/frameCatalog";
 import { useAuth } from "../auth/AuthProvider";
 import { useProducts } from "../hooks/useProducts";
 import { useLensOptions } from "../hooks/useLensOptions";
@@ -87,8 +87,21 @@ export function ConfigLab() {
     }
   });
 
-  const selectedProduct = products[0] ?? null;
-  const selectedFinishConfig = finishId ? AR_FRAME_CATALOG[finishId as keyof typeof AR_FRAME_CATALOG] : null;
+  const selectedProduct = useMemo(() => {
+    if (!products.length) return null;
+    if (!finishId) return products[0];
+    const match = products.find(p => {
+      const slug = p.name.toLowerCase().replace(/\s+/g, "-");
+      return p.name.toLowerCase() === finishId.toLowerCase() || slug === finishId.toLowerCase();
+    });
+    return match || products[0];
+  }, [products, finishId]);
+
+  const selectedFinishConfig = useMemo(() => {
+    if (!selectedProduct) return null;
+    return getFrameConfigForProduct(selectedProduct);
+  }, [selectedProduct]);
+
   const isZh = i18n.language === "zh";
   const productName = selectedProduct ? (isZh ? selectedProduct.nameZh : selectedProduct.nameEn) : "";
   const productMaterial = selectedProduct ? (isZh ? selectedProduct.materialZh : selectedProduct.materialEn) : "";

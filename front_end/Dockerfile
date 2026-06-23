@@ -12,6 +12,10 @@ RUN npm ci
 # Copy full application sources
 COPY . .
 
+# Production API base URL (baked into frontend JS at build time)
+ARG VITE_API_BASE_URL
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+
 # Run assets localization script and build frontend distribution
 RUN node scripts/localize-ar-assets.js && npm run build
 
@@ -20,12 +24,16 @@ RUN node scripts/localize-ar-assets.js && npm run build
 # ==========================================
 FROM nginx:1.27-alpine
 
-# Set up custom Nginx server block configuration
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Install envsubst for runtime config templating
+RUN apk add --no-cache gettext
+
+# Set up custom Nginx server block configuration (as template)
+COPY nginx.conf /etc/nginx/conf.d/default.conf.template
+
+# Runtime entrypoint: substitute env vars then start nginx
+CMD ["/bin/sh", "-c", "envsubst '${API_ORIGIN}' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
 
 # Extract build bundle output to host public root
 COPY --from=build /app/dist /usr/share/nginx/html
 
 EXPOSE 80
-
-CMD ["nginx", "-g", "daemon off;"]

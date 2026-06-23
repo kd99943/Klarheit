@@ -9,6 +9,7 @@ import enConfigLab from "./locales/en/config-lab.json";
 import enCheckout from "./locales/en/checkout.json";
 import enAccount from "./locales/en/account.json";
 import enConfirmation from "./locales/en/confirmation.json";
+import enProfile from "./locales/en/profile.json";
 
 import zhCommon from "./locales/zh/common.json";
 import zhLanding from "./locales/zh/landing.json";
@@ -18,6 +19,7 @@ import zhConfigLab from "./locales/zh/config-lab.json";
 import zhCheckout from "./locales/zh/checkout.json";
 import zhAccount from "./locales/zh/account.json";
 import zhConfirmation from "./locales/zh/confirmation.json";
+import zhProfile from "./locales/zh/profile.json";
 
 const savedLocale = localStorage.getItem("klarheit-locale") ?? "en";
 
@@ -32,6 +34,7 @@ i18n.use(initReactI18next).init({
       checkout: enCheckout,
       account: enAccount,
       confirmation: enConfirmation,
+      profile: enProfile,
     },
     zh: {
       common: zhCommon,
@@ -42,6 +45,7 @@ i18n.use(initReactI18next).init({
       checkout: zhCheckout,
       account: zhAccount,
       confirmation: zhConfirmation,
+      profile: zhProfile,
     },
   },
   lng: savedLocale,

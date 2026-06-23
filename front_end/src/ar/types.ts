@@ -36,6 +36,7 @@ export interface ARFrameConfig {
   frameColor: string;
   lensColor: string;
   modelUrl: string | null;
+  styleName?: "aviator" | "bold-acetate" | "round-wire" | "crystal-acetate";
   transformOffset: {
     position: [number, number, number];
     rotation: [number, number, number];

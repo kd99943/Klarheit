@@ -17,6 +17,13 @@ export interface UserProfile {
   email: string;
   firstName: string;
   lastName: string;
+  phone: string | null;
+  phoneVerified: boolean;
+}
+
+export interface PhoneStatus {
+  maskedPhone: string | null;
+  verified: boolean;
 }
 
 export interface AuthResponse {
@@ -56,6 +63,7 @@ export interface OrderRequest {
   };
   couponCode?: string;
   paymentChannel?: string;
+  finishId?: string;
 }
 
 export interface OrderResponse {
@@ -108,6 +116,14 @@ interface ApiErrorPayload {
 
 const DEFAULT_API_BASE_URL = "http://localhost:8081/api/v1";
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL?.trim() || DEFAULT_API_BASE_URL).replace(/\/$/, "");
+
+// Warn if running in production with localhost API URL
+if (import.meta.env.PROD && API_BASE_URL.includes("localhost")) {
+  console.warn(
+    "[Klarheit] API_BASE_URL is pointing to localhost in a production build. " +
+    "Set VITE_API_BASE_URL at build time to your production API origin."
+  );
+}
 const AUTH_TOKEN_KEY = "klarheit_auth_token";
 
 export class ApiError extends Error {
@@ -289,4 +305,31 @@ export function triggerMockPayment(orderNumber: string, channel: string): Promis
 
 export function getApiBaseUrl(): string {
   return API_BASE_URL;
+}
+
+// ── Phone & SMS ──────────────────────────────────────────
+
+export function sendSmsCode(phone: string): Promise<void> {
+  return request<void>("/phone/send-code", {
+    method: "POST",
+    body: JSON.stringify({ phone }),
+  });
+}
+
+export function verifyAndBindPhone(phone: string, code: string): Promise<void> {
+  return request<void>("/phone/verify-and-bind", {
+    method: "POST",
+    body: JSON.stringify({ phone, code }),
+  });
+}
+
+export function getPhoneStatus(): Promise<PhoneStatus> {
+  return request<PhoneStatus>("/phone/status");
+}
+
+export function resetPasswordViaSms(phone: string, code: string, newPassword: string): Promise<void> {
+  return request<void>("/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ phone, code, newPassword }),
+  });
 }

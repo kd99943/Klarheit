@@ -3,6 +3,7 @@ import { X } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useAuth } from "../../auth/AuthProvider";
 import { useTranslation } from "react-i18next";
+import { ForgotPasswordFlow } from "./ForgotPasswordFlow";
 
 type SignInForm = {
   email: string;
@@ -44,10 +45,12 @@ export function AuthDrawer() {
 
   const [signInForm, setSignInForm] = useState<SignInForm>(EMPTY_SIGN_IN_FORM);
   const [registerForm, setRegisterForm] = useState<RegisterForm>(EMPTY_REGISTER_FORM);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   useEffect(() => {
     setSignInForm({ ...EMPTY_SIGN_IN_FORM });
     setRegisterForm({ ...EMPTY_REGISTER_FORM });
+    setShowForgotPassword(false);
   }, [isAuthModalOpen]);
 
   async function handleSignInSubmit(event: FormEvent<HTMLFormElement>) {
@@ -109,6 +112,10 @@ export function AuthDrawer() {
           </button>
         </div>
 
+        {showForgotPassword ? (
+          <ForgotPasswordFlow onBack={() => setShowForgotPassword(false)} />
+        ) : (
+        <>
         <div className="mb-8">
           <h3 className="text-3xl font-display font-light text-brand-primary mb-3">
             {authMode === "signin" ? t("auth.welcomeBack") : t("auth.createAccount")}
@@ -152,6 +159,16 @@ export function AuthDrawer() {
                 placeholder="••••••••"
                 className="w-full bg-transparent border-0 border-b border-slate-300 py-3 px-0 focus:ring-0 focus:border-brand-primary outline-none transition-colors text-lg font-medium text-brand-primary rounded-none placeholder:text-slate-300"
               />
+            </div>
+
+            <div className="text-right -mt-2 mb-2">
+              <button
+                type="button"
+                onClick={() => setShowForgotPassword(true)}
+                className="text-xs text-slate-400 hover:text-brand-primary transition-colors"
+              >
+                {t("auth.forgotPassword")}
+              </button>
             </div>
 
             <button
@@ -224,6 +241,8 @@ export function AuthDrawer() {
               {isSubmittingAuth ? t("auth.creatingAccount") : t("auth.createAccount")}
             </button>
           </form>
+        )}
+        </>
         )}
       </div>
     </>

@@ -15,6 +15,7 @@ import { ARVirtualStudio } from "./pages/ARVirtualStudio";
 import { ConfigLab } from "./pages/ConfigLab";
 import { Checkout } from "./pages/Checkout";
 import { MyAccountPage } from "./pages/MyAccountPage";
+import { ProfileDetailsPage } from "./pages/ProfileDetailsPage";
 import { OrderConfirmationPage } from "./pages/OrderConfirmationPage";
 
 export default function App() {
@@ -49,6 +50,14 @@ export default function App() {
                 element={
                   <ProtectedRoute message={t("nav.signInMessage")}>
                     <MyAccountPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="profile-details"
+                element={
+                  <ProtectedRoute message={t("nav.signInMessage")}>
+                    <ProfileDetailsPage />
                   </ProtectedRoute>
                 }
               />

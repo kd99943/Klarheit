@@ -73,8 +73,16 @@ public class AuthService implements UserService {
         return userAccountRepository.findById(id);
     }
 
+    public void resetPassword(String phone, String newPassword) {
+        UserAccount user = userAccountRepository.findByPhone(phone)
+                .orElseThrow(() -> new IllegalArgumentException("该手机号未注册"));
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userAccountRepository.save(user);
+        log.info("Password reset via SMS for phone: {}", phone);
+    }
+
     private UserProfileDTO toUserProfile(UserAccount user) {
-        return new UserProfileDTO(user.getId(), user.getEmail(), user.getFirstName(), user.getLastName());
+        return new UserProfileDTO(user.getId(), user.getEmail(), user.getFirstName(), user.getLastName(), user.getPhone(), user.isPhoneVerified());
     }
 
     private String normalizeEmail(String email) {

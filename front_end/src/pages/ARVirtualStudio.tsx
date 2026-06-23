@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Camera, CheckCircle, Repeat, SlidersHorizontal, Sparkles, ArrowLeft, ShieldCheck, Eye, EyeOff, X, HelpCircle, Loader2 } from "lucide-react";
+import { Camera, SlidersHorizontal, ArrowLeft, ShieldCheck, Eye, EyeOff, Loader2 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { ARTryOnCanvas } from "../ar/ARTryOnCanvas";
 import { calculateGlassesTransform } from "../ar/arCalibration";
-import { AR_FRAME_CATALOG, DEFAULT_AR_FINISH } from "../ar/frameCatalog";
-import type { ARExperienceStatus, ARFinishId, ARFrameConfig } from "../ar/types";
-import { fetchArConfigs } from "../services/api";
+import { AR_FRAME_CATALOG, getFrameConfigForProduct } from "../ar/frameCatalog";
+import type { ARExperienceStatus, ARFrameConfig } from "../ar/types";
+import { useProducts } from "../hooks/useProducts";
 import { useCameraStream } from "../ar/useCameraStream";
 import { useFaceLandmarks } from "../ar/useFaceLandmarks";
 import { Button } from "../components/ui/Button";
@@ -28,8 +28,11 @@ function resolveExperienceStatus(cameraStatus: string, trackingStatus: string, c
 export function ARVirtualStudio() {
   const { t, i18n } = useTranslation("ar-studio");
   const navigate = useNavigate();
-  const [arConfigs, setArConfigs] = useState<ARFrameConfig[]>(Object.values(AR_FRAME_CATALOG));
-  const [activeFinish, setActiveFinish] = useState<ARFinishId>(DEFAULT_AR_FINISH);
+  
+  const { products } = useProducts();
+  const [activeProductId, setActiveProductId] = useState<number | null>(null);
+  const [isCatalogExpanded, setIsCatalogExpanded] = useState<boolean>(true);
+  
   const [captureMessage, setCaptureMessage] = useState<string | null>(null);
   const [showOverlay, setShowOverlay] = useState<boolean>(true); // Before/After toggle state
   const [showPrivacyTooltip, setShowPrivacyTooltip] = useState<boolean>(false);
@@ -39,10 +42,33 @@ export function ARVirtualStudio() {
   
   const camera = useCameraStream();
   const tracking = useFaceLandmarks({ videoRef, enabled: camera.status === "ready" });
-  
+
+  // Auto-initialize activeProductId when products load
+  useEffect(() => {
+    if (products.length > 0 && activeProductId === null) {
+      const storedFinish = sessionStorage.getItem("savedFinishId");
+      const match = products.find(p => {
+        const slug = p.name.toLowerCase().replace(/\s+/g, "-");
+        return p.name.toLowerCase() === storedFinish?.toLowerCase() || slug === storedFinish?.toLowerCase();
+      });
+      if (match) {
+        setActiveProductId(match.id);
+      } else {
+        setActiveProductId(products[0].id);
+      }
+    }
+  }, [products, activeProductId]);
+
+  const selectedProduct = useMemo(() => {
+    return products.find(p => p.id === activeProductId) || products[0] || null;
+  }, [products, activeProductId]);
+
   const frame = useMemo(() => {
-    return arConfigs.find((c) => c.id === activeFinish) || arConfigs[0] || Object.values(AR_FRAME_CATALOG)[0];
-  }, [arConfigs, activeFinish]);
+    if (selectedProduct) {
+      return getFrameConfigForProduct(selectedProduct);
+    }
+    return Object.values(AR_FRAME_CATALOG)[0];
+  }, [selectedProduct]);
   
   const transform = useMemo(() => (tracking.landmarks ? calculateGlassesTransform(tracking.landmarks) : null), [tracking.landmarks]);
   
@@ -89,21 +115,6 @@ export function ARVirtualStudio() {
     }
   }, [camera.stream]);
 
-  useEffect(() => {
-    fetchArConfigs()
-      .then((configs) => {
-        if (configs && configs.length > 0) {
-          setArConfigs(configs);
-          if (!configs.some((c) => c.id === activeFinish)) {
-            setActiveFinish(configs[0].id);
-          }
-        }
-      })
-      .catch((err) => {
-        console.error("Failed to fetch AR configs from API, falling back to static catalog:", err);
-      });
-  }, []);
-
   const handleCapture = useCallback(() => {
     const capture = captureRef.current?.();
     setCaptureMessage(capture ? t("capture.ready") : t("capture.unavailable"));
@@ -111,22 +122,25 @@ export function ARVirtualStudio() {
   }, [t]);
 
   const handleSaveAndConfigure = () => {
+    if (!selectedProduct) return;
+    const slug = selectedProduct.name.toLowerCase().replace(/\s+/g, "-");
     try {
-      sessionStorage.setItem("savedFinishId", activeFinish);
+      sessionStorage.setItem("savedFinishId", slug);
     } catch (e) {
       console.error("Failed to save finishId in sessionStorage", e);
     }
-    navigate("/config-lab", { state: { finishId: activeFinish } });
+    navigate("/config-lab", { state: { finishId: slug } });
   };
 
   const showFallback = camera.status === "denied" || camera.status === "unsupported" || camera.status === "error";
+  const isZh = i18n.language === "zh";
 
   return (
     <div className="relative w-full min-h-[calc(100vh-80px)] overflow-hidden bg-slate-50 text-slate-900 flex flex-col font-sans">
       <video ref={videoRef} className="hidden" autoPlay muted playsInline />
 
       {/* Main Container */}
-      {camera.status === "requesting" || camera.status === "initializing" ? (
+      {camera.status === "requesting" ? (
         // Loader Screen
         <div className="flex-1 flex flex-col items-center justify-center p-8 bg-slate-50">
           <Loader2 className="w-10 h-10 text-brand-primary animate-spin mb-4" strokeWidth={1.5} />
@@ -143,7 +157,7 @@ export function ARVirtualStudio() {
             
             <div className="relative z-10 w-full aspect-[4/3] flex items-center justify-center bg-slate-50/50 rounded-2xl border border-slate-100 p-6 shadow-inner">
               <img
-                src={AERO_X1_IMAGE_URL}
+                src={selectedProduct?.imageUrl || AERO_X1_IMAGE_URL}
                 alt={frame.productName}
                 className="w-full h-full object-contain mix-blend-multiply transition-transform duration-500 group-hover:scale-105"
               />
@@ -192,31 +206,45 @@ export function ARVirtualStudio() {
               </div>
             )}
 
-            {/* Frame swatches */}
+            {/* Frame catalog list in fallback */}
             <div className="flex flex-col gap-3">
-              <span className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">{t("currentFinish")}</span>
-              <div className="flex gap-4">
-                {arConfigs.map((option) => {
-                  const finish = option.id;
-                  const isSelected = activeFinish === finish;
+              <span className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">
+                {t("catalog.choose", "选择镜框系列")}
+              </span>
+              <div className="flex flex-col gap-2.5 max-h-[200px] overflow-y-auto pr-1 scrollbar-thin">
+                {products.map((product) => {
+                  const isSelected = activeProductId === product.id;
+                  const displayName = isZh ? product.nameZh : product.nameEn;
+                  const displayMat = isZh ? product.materialZh : product.materialEn;
                   return (
                     <button
-                      key={finish}
-                      onClick={() => setActiveFinish(finish)}
-                      className="group flex flex-col items-center gap-1.5 transition-transform active:scale-95"
+                      key={product.id}
+                      onClick={() => setActiveProductId(product.id)}
+                      className={cn(
+                        "flex items-center gap-3 p-3 rounded-2xl border text-left transition-all duration-300 w-full active:scale-[0.98]",
+                        isSelected
+                          ? "border-brand-primary bg-brand-primary/5 shadow-sm ring-1 ring-brand-primary"
+                          : "border-slate-100 bg-slate-50 hover:border-slate-200"
+                      )}
                     >
-                      <div className={cn(
-                        "w-10 h-10 rounded-full p-0.5 relative transition-all duration-300",
-                        isSelected ? "ring-2 ring-brand-primary ring-offset-2 scale-110" : "border border-slate-200 hover:border-slate-400"
-                      )}>
-                        <div className="w-full h-full rounded-full shadow-inner" style={{ background: option.frameColor }} />
+                      <div className="w-10 h-10 rounded-xl bg-white border border-slate-100 flex items-center justify-center p-1 shrink-0">
+                        <img
+                          src={product.imageUrl}
+                          alt={displayName}
+                          className="w-full h-full object-contain mix-blend-multiply"
+                        />
                       </div>
-                      <span className={cn(
-                        "text-[8px] uppercase tracking-widest font-semibold transition-colors duration-300",
-                        isSelected ? "text-slate-900 font-bold" : "text-slate-400 group-hover:text-slate-600"
-                      )}>
-                        {t(option.finishLabelKey)}
-                      </span>
+                      <div className="flex flex-col min-w-0">
+                        <span className={cn(
+                          "text-xs font-semibold truncate",
+                          isSelected ? "text-slate-900" : "text-slate-700"
+                        )}>
+                          {displayName}
+                        </span>
+                        <span className="text-[9px] text-slate-400 truncate mt-0.5">
+                          {displayMat}
+                        </span>
+                      </div>
                     </button>
                   );
                 })}
@@ -244,6 +272,7 @@ export function ARVirtualStudio() {
               stream={camera.stream}
               frame={frame}
               transform={transform}
+              landmarks={tracking.landmarks}
               onCaptureReady={(capture) => (captureRef.current = capture)}
               showOverlay={showOverlay}
             />
@@ -312,84 +341,118 @@ export function ARVirtualStudio() {
             )}
 
             {/* Bottom Toolbar Overlay */}
-            <div className="mt-auto w-full max-w-4xl mx-auto flex flex-col gap-6 pointer-events-none">
-              <div className="bg-white/95 border border-slate-200/80 p-5 rounded-3xl shadow-xl pointer-events-auto backdrop-blur-md flex flex-col gap-4">
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                  <div className="text-center sm:text-left">
-                    <span className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">{t("currentFinish")}</span>
-                    <h3 className="font-display font-medium text-slate-900 text-lg sm:text-xl mt-0.5">{frame.productName}</h3>
-                  </div>
-
-                  {/* Frame finish options selector */}
-                  <div className="flex items-center gap-4">
-                    {arConfigs.map((option) => {
-                      const finish = option.id;
-                      const isSelected = activeFinish === finish;
-                      return (
-                        <button
-                          key={finish}
-                          onClick={() => setActiveFinish(finish)}
-                          className="group flex flex-col items-center gap-1.5 transition-transform active:scale-95"
-                        >
-                          <div className={cn(
-                            "w-9 h-9 rounded-full p-0.5 relative transition-all duration-300",
-                            isSelected ? "ring-2 ring-brand-primary ring-offset-2 scale-110" : "border border-slate-200 hover:border-slate-400"
-                          )}>
-                            <div className="w-full h-full rounded-full shadow-inner" style={{ background: option.frameColor }} />
-                          </div>
-                          <span className={cn(
-                            "text-[8px] uppercase tracking-widest font-semibold transition-colors duration-300",
-                            isSelected ? "text-slate-900 font-bold" : "text-slate-400 group-hover:text-slate-600"
-                          )}>
-                            {t(option.finishLabelKey)}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Toolbar control buttons */}
-                <div className="flex flex-col sm:flex-row gap-3 items-center justify-between border-t border-slate-100 pt-4">
-                  <div className="flex items-center gap-2">
-                    {/* Before/After Toggle */}
-                    <button
-                      onClick={() => setShowOverlay(!showOverlay)}
-                      className={cn(
-                        "px-4 py-3 rounded-xl border text-[10px] uppercase font-bold tracking-widest transition-all flex items-center gap-2",
-                        showOverlay
-                          ? "bg-slate-900 border-slate-900 text-white"
-                          : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
-                      )}
-                    >
-                      {showOverlay ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                      {t("beforeAfter")}
-                    </button>
-
-                    {/* Screenshot Shutter */}
-                    <button
-                      onClick={handleCapture}
-                      className="w-11 h-11 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors flex items-center justify-center shadow-sm"
-                      title={t("camera.takePhoto")}
-                    >
-                      <Camera className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  {/* Primary Configuration CTA */}
-                  <Button
-                    variant="primary"
-                    onClick={handleSaveAndConfigure}
-                    className="w-full sm:w-auto bg-brand-primary hover:bg-brand-primary/90 text-white border-0 shadow-md text-[10px] py-4 px-8 rounded-xl font-bold uppercase tracking-[0.2em] flex items-center justify-center gap-2"
-                  >
-                    <SlidersHorizontal className="w-4 h-4" />
-                    {t("saveAndConfigure")}
-                  </Button>
-                </div>
+            <div className="mt-auto w-full max-w-4xl mx-auto flex flex-col gap-3 pointer-events-none">
+              {/* Collapse/Expand Toggle Button */}
+              <div className="flex justify-center">
+                <button
+                  onClick={() => setIsCatalogExpanded(!isCatalogExpanded)}
+                  className="pointer-events-auto flex items-center justify-center gap-1.5 px-4 py-2 rounded-full border border-slate-200 bg-white/95 text-[10px] font-bold uppercase tracking-widest text-slate-700 hover:text-slate-900 hover:bg-white shadow-md backdrop-blur-md transition-all active:scale-95"
+                >
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-brand-primary" />
+                  {isCatalogExpanded ? t("catalog.hide", "收起产品系列") : t("catalog.show", "展开产品系列")}
+                </button>
               </div>
 
+              {isCatalogExpanded && (
+                <div className="bg-white/95 border border-slate-200/80 p-5 rounded-3xl shadow-xl pointer-events-auto backdrop-blur-md flex flex-col gap-4 transition-all duration-300 ease-in-out">
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">
+                        {t("catalog.choose", "选择镜框系列")}
+                      </span>
+                      {selectedProduct && (
+                        <span className="text-xs text-brand-primary font-medium">
+                          {isZh ? selectedProduct.materialZh : selectedProduct.materialEn}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Horizontal scrollable row of mini cards */}
+                    <div className="flex overflow-x-auto gap-3 py-1 scrollbar-none snap-x snap-mandatory">
+                      {products.map((product) => {
+                        const isSelected = activeProductId === product.id;
+                        const displayName = isZh ? product.nameZh : product.nameEn;
+                        const displayMat = isZh ? product.materialZh : product.materialEn;
+                        return (
+                          <button
+                            key={product.id}
+                            onClick={() => setActiveProductId(product.id)}
+                            className={cn(
+                              "flex items-center gap-3 p-3 rounded-2xl border text-left transition-all duration-300 min-w-[210px] max-w-[250px] shrink-0 snap-start active:scale-[0.98]",
+                              isSelected
+                                ? "border-brand-primary bg-brand-primary/5 shadow-md ring-1 ring-brand-primary"
+                                : "border-slate-100 bg-slate-50/50 hover:border-slate-300 hover:bg-slate-50"
+                            )}
+                          >
+                            {/* Left: Frame thumbnail image */}
+                            <div className="w-12 h-12 rounded-xl bg-white border border-slate-100 flex items-center justify-center p-1 shrink-0 shadow-sm">
+                              <img
+                                src={product.imageUrl}
+                                alt={displayName}
+                                className="w-full h-full object-contain mix-blend-multiply"
+                              />
+                            </div>
+                            
+                            {/* Right: Name & Material */}
+                            <div className="flex flex-col min-w-0">
+                              <span className={cn(
+                                "text-sm font-medium tracking-tight truncate",
+                                isSelected ? "text-slate-900 font-semibold" : "text-slate-700"
+                              )}>
+                                {displayName}
+                              </span>
+                              <span className="text-[10px] text-slate-400 truncate mt-0.5">
+                                {displayMat}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Toolbar control buttons */}
+                  <div className="flex flex-col sm:flex-row gap-3 items-center justify-between border-t border-slate-100 pt-4">
+                    <div className="flex items-center gap-2">
+                      {/* Before/After Toggle */}
+                      <button
+                        onClick={() => setShowOverlay(!showOverlay)}
+                        className={cn(
+                          "px-4 py-3 rounded-xl border text-[10px] uppercase font-bold tracking-widest transition-all flex items-center gap-2",
+                          showOverlay
+                            ? "bg-slate-900 border-slate-900 text-white"
+                            : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                        )}
+                      >
+                        {showOverlay ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                        {t("beforeAfter")}
+                      </button>
+
+                      {/* Screenshot Shutter */}
+                      <button
+                        onClick={handleCapture}
+                        className="w-11 h-11 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors flex items-center justify-center shadow-sm pointer-events-auto"
+                        title={t("camera.takePhoto")}
+                      >
+                        <Camera className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* Primary Configuration CTA */}
+                    <Button
+                      variant="primary"
+                      onClick={handleSaveAndConfigure}
+                      className="w-full sm:w-auto bg-brand-primary hover:bg-brand-primary/90 text-white border-0 shadow-md text-[10px] py-4 px-8 rounded-xl font-bold uppercase tracking-[0.2em] flex items-center justify-center gap-2"
+                    >
+                      <SlidersHorizontal className="w-4 h-4" />
+                      {t("saveAndConfigure")}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {captureMessage && (
-                <div className="self-center bg-slate-900 text-white text-[9px] uppercase font-bold tracking-widest px-4 py-2.5 rounded-full shadow-lg border border-white/10 animate-bounce">
+                <div className="self-center bg-slate-900 text-white text-[9px] uppercase font-bold tracking-widest px-4 py-2.5 rounded-full shadow-lg border border-white/10 animate-bounce pointer-events-auto">
                   {captureMessage}
                 </div>
               )}

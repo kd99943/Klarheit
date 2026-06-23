@@ -42,5 +42,15 @@
   "error.somethingWentWrong": "出现错误",
   "error.unexpectedError": "渲染此页面时发生意外错误，请尝试刷新。",
   "error.refreshPage": "刷新页面",
-  "auth.emailPlaceholder": "client@example.com"
+  "auth.emailPlaceholder": "client@example.com",
+  "auth.forgotPassword": "忘记密码？",
+  "auth.resetPassword": "重置密码",
+  "auth.resetPasswordDesc": "输入您绑定的手机号，通过短信验证码重置密码。",
+  "auth.newPassword": "新密码",
+  "auth.confirmNewPassword": "确认新密码",
+  "auth.passwordResetSuccess": "密码重置成功，请使用新密码登录。",
+  "auth.backToSignIn": "返回登录",
+  "auth.passwordMismatch": "两次输入的密码不一致",
+  "auth.phoneRequired": "请输入手机号",
+  "auth.codeRequired": "请输入验证码"
 }

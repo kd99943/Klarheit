@@ -48,6 +48,7 @@ type AuthContextValue = {
   login: (payload: LoginRequest) => Promise<void>;
   register: (payload: RegisterRequest) => Promise<void>;
   logout: () => void;
+  refreshUser: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -181,6 +182,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const refreshUser = useCallback(async () => {
+    try {
+      const currentUser = await fetchCurrentUser();
+      setUser(currentUser);
+    } catch {
+      // silent — user may have logged out
+    }
+  }, []);
+
   const value = useMemo<AuthContextValue>(() => ({
     user,
     token,
@@ -198,6 +208,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     login,
     register,
     logout,
+    refreshUser,
   }), [
     user,
     token,

@@ -105,14 +105,14 @@ export function LandingPage() {
                 src="/images/aero_x1.png"
               />
               {/* Annotations */}
-              <div className="absolute top-[25%] left-[20%] sm:left-[30%] flex items-center gap-2">
+              <div className="absolute top-[38%] left-[32%] sm:left-[34%] flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full border-2 border-brand-primary bg-white"></div>
                 <div className="w-8 sm:w-16 h-[1px] bg-brand-primary/50"></div>
                 <span className="text-[9px] sm:text-[10px] text-brand-primary uppercase bg-white/80 px-2 py-1 backdrop-blur-sm border border-brand-primary/20 tracking-widest font-semibold">
                   {t("structure.titaniumRim")}
                 </span>
               </div>
-              <div className="absolute bottom-[35%] right-[15%] sm:right-[25%] flex items-center gap-2">
+              <div className="absolute top-[50%] left-[25%] sm:left-[27%] flex items-center gap-2">
                 <span className="text-[9px] sm:text-[10px] text-brand-primary uppercase bg-white/80 px-2 py-1 backdrop-blur-sm border border-brand-primary/20 tracking-widest font-semibold">
                   {t("structure.aeroPad")}
                 </span>

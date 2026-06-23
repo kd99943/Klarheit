@@ -19,6 +19,12 @@ public class UserAccount {
     @Column(nullable = false, unique = true)
     private String email;
 
+    @Column(name = "phone", length = 20)
+    private String phone;
+
+    @Column(name = "phone_verified", nullable = false)
+    private boolean phoneVerified = false;
+
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
@@ -46,12 +52,16 @@ public class UserAccount {
 
     public Long getId() { return id; }
     public String getEmail() { return email; }
+    public String getPhone() { return phone; }
+    public boolean isPhoneVerified() { return phoneVerified; }
     public String getPasswordHash() { return passwordHash; }
     public String getFirstName() { return firstName; }
     public String getLastName() { return lastName; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setId(Long id) { this.id = id; }
     public void setEmail(String email) { this.email = email; }
+    public void setPhone(String phone) { this.phone = phone; }
+    public void setPhoneVerified(boolean phoneVerified) { this.phoneVerified = phoneVerified; }
     public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
     public void setFirstName(String firstName) { this.firstName = firstName; }
     public void setLastName(String lastName) { this.lastName = lastName; }
@@ -61,6 +71,8 @@ public class UserAccount {
         private final UserAccount instance = new UserAccount();
         public Builder id(Long id) { instance.id = id; return this; }
         public Builder email(String email) { instance.email = email; return this; }
+        public Builder phone(String phone) { instance.phone = phone; return this; }
+        public Builder phoneVerified(boolean phoneVerified) { instance.phoneVerified = phoneVerified; return this; }
         public Builder passwordHash(String passwordHash) { instance.passwordHash = passwordHash; return this; }
         public Builder firstName(String firstName) { instance.firstName = firstName; return this; }
         public Builder lastName(String lastName) { instance.lastName = lastName; return this; }

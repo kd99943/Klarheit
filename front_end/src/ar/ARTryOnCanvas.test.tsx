@@ -2,6 +2,14 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
 
 vi.mock("three", () => {
+  class MockGeometry {
+    translate(x: number, y: number, z: number) { return this; }
+    rotateX(a: number) { return this; }
+    rotateY(a: number) { return this; }
+    rotateZ(a: number) { return this; }
+    dispose() {}
+  }
+
   class Vector3 {
     x = 0; y = 0; z = 0;
     constructor(x = 0, y = 0, z = 0) {
@@ -38,6 +46,11 @@ vi.mock("three", () => {
     constructor(x = 0, y = 0, z = 0, order = "XYZ") {
       this.x = x; this.y = y; this.z = z; this.order = order;
     }
+    set(x: number, y: number, z: number, order?: string) {
+      this.x = x; this.y = y; this.z = z;
+      if (order) this.order = order;
+      return this;
+    }
   }
 
   const mockRenderer = {
@@ -67,7 +80,14 @@ vi.mock("three", () => {
     AmbientLight: class AmbientLight {},
     DirectionalLight: class DirectionalLight {
       position = { set: vi.fn() };
-      shadow = { mapSize: { width: 0, height: 0 }, bias: 0 };
+      shadow = {
+        mapSize: { width: 0, height: 0 },
+        bias: 0,
+        camera: {
+          left: 0, right: 0, top: 0, bottom: 0, near: 0, far: 0,
+          updateProjectionMatrix: vi.fn()
+        }
+      };
     },
     Group: class Group {
       add = vi.fn();
@@ -87,17 +107,45 @@ vi.mock("three", () => {
       geometry = { dispose: vi.fn() };
       material = { dispose: vi.fn() };
     },
-    TorusGeometry: class TorusGeometry {},
-    CircleGeometry: class CircleGeometry {},
-    BoxGeometry: class BoxGeometry {},
-    SphereGeometry: class SphereGeometry {},
+    TorusGeometry: class TorusGeometry extends MockGeometry {},
+    CircleGeometry: class CircleGeometry extends MockGeometry {},
+    BoxGeometry: class BoxGeometry extends MockGeometry {},
+    SphereGeometry: class SphereGeometry extends MockGeometry {},
+    CylinderGeometry: class CylinderGeometry extends MockGeometry {},
+    ExtrudeGeometry: class ExtrudeGeometry extends MockGeometry {},
+    ShapeGeometry: class ShapeGeometry extends MockGeometry {},
+    Shape: class Shape {
+      moveTo = vi.fn();
+      bezierCurveTo = vi.fn();
+      absellipse = vi.fn();
+      holes: any[] = [];
+    },
+    Path: class Path {
+      moveTo = vi.fn();
+      bezierCurveTo = vi.fn();
+      absellipse = vi.fn();
+    },
     MeshStandardMaterial: class MeshStandardMaterial {},
     MeshPhysicalMaterial: class MeshPhysicalMaterial {},
     MeshBasicMaterial: class MeshBasicMaterial {},
+    ShadowMaterial: class ShadowMaterial {},
     Vector3,
     Quaternion,
     Euler,
-    PCFSoftShadowMap: 1
+    Color: class Color {
+      constructor(val?: any) {}
+    },
+    PCFSoftShadowMap: 1,
+    ACESFilmicToneMapping: 1,
+    EquirectangularReflectionMapping: 2,
+    PMREMGenerator: class PMREMGenerator {
+      compileEquirectangularShader = vi.fn();
+      fromEquirectangular = vi.fn().mockReturnValue({ texture: {} });
+      dispose = vi.fn();
+    },
+    CanvasTexture: class CanvasTexture {
+      dispose = vi.fn();
+    }
   };
 });
 

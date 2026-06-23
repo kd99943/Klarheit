@@ -27,6 +27,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -57,6 +58,8 @@ public class OrderService {
         this.couponService = couponService;
         this.paymentService = paymentService;
     }
+
+    private static final int ORDER_NUMBER_MAX_RETRIES = 5;
 
     @Transactional
     public OrderResponseDTO checkout(OrderRequestDTO request, String authenticatedEmail) {
@@ -110,23 +113,35 @@ public class OrderService {
             orderStatus = "PENDING_PAYMENT";
         }
 
-        Order order = orderRepository.save(Order.builder()
-                .orderNumber(generateOrderNumber())
-                .totalAmount(finalTotalAmount)
-                .status(orderStatus)
-                .userId(user.getId())
-                .product(product)
-                .prescription(prescription)
-                .customerFirstName(request.customer().firstName().trim())
-                .customerLastName(request.customer().lastName().trim())
-                .customerEmail(user.getEmail())
-                .shippingAddress(request.customer().shippingAddress().trim())
-                .lensOptions(lensOptions)
-                .paymentChannel(request.paymentChannel())
-                .discountAmount(discountAmount)
-                .appliedCouponCode(appliedCouponCode)
-                .finishId(request.finishId())
-                .build());
+        // Retry on order_number collision (unique constraint violation)
+        Order order = null;
+        for (int attempt = 0; attempt < ORDER_NUMBER_MAX_RETRIES; attempt++) {
+            try {
+                order = orderRepository.save(Order.builder()
+                        .orderNumber(generateOrderNumber())
+                        .totalAmount(finalTotalAmount)
+                        .status(orderStatus)
+                        .userId(user.getId())
+                        .product(product)
+                        .prescription(prescription)
+                        .customerFirstName(request.customer().firstName().trim())
+                        .customerLastName(request.customer().lastName().trim())
+                        .customerEmail(user.getEmail())
+                        .shippingAddress(request.customer().shippingAddress().trim())
+                        .lensOptions(lensOptions)
+                        .paymentChannel(request.paymentChannel())
+                        .discountAmount(discountAmount)
+                        .appliedCouponCode(appliedCouponCode)
+                        .finishId(request.finishId())
+                        .build());
+                break;
+            } catch (DataIntegrityViolationException e) {
+                if (attempt == ORDER_NUMBER_MAX_RETRIES - 1) {
+                    throw new IllegalStateException("Failed to generate a unique order number after " + ORDER_NUMBER_MAX_RETRIES + " attempts.", e);
+                }
+                log.warn("Order number collision on attempt {}, retrying...", attempt + 1);
+            }
+        }
 
         log.info("Order created: {} for user: {} original amount: {}, discount: {}, final amount: {}",
                 order.getOrderNumber(), user.getEmail(), totalAmount, discountAmount, finalTotalAmount);
@@ -239,7 +254,7 @@ public class OrderService {
 
     private String generateOrderNumber() {
         return "KL-" + LocalDateTime.now().format(ORDER_NUMBER_FORMAT) + "-"
-                + ThreadLocalRandom.current().nextInt(1000, 10000);
+                + ThreadLocalRandom.current().nextInt(100000, 1000000);
     }
 
     @Transactional(readOnly = true)

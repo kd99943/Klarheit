@@ -2,6 +2,8 @@ package com.klarheit.backend.config;
 
 import com.klarheit.backend.lens.LensOption;
 import com.klarheit.backend.lens.LensOptionRepository;
+import com.klarheit.backend.order.Order;
+import com.klarheit.backend.order.OrderRepository;
 import com.klarheit.backend.product.Product;
 import com.klarheit.backend.product.ProductArConfig;
 import com.klarheit.backend.product.ProductRepository;
@@ -24,8 +26,9 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class DataInitializer {
     @Bean
-    ApplicationRunner seedCatalogData(ProductRepository productRepository, LensOptionRepository lensOptionRepository) {
+    ApplicationRunner seedCatalogData(ProductRepository productRepository, LensOptionRepository lensOptionRepository, OrderRepository orderRepository) {
         return args -> {
+            normalizeAndDeduplicateProducts(productRepository, orderRepository);
             seedProductArConfigs(productRepository);
         };
     }
@@ -74,5 +77,57 @@ public class DataInitializer {
         config.setRotationY(BigDecimal.ZERO.setScale(4));
         config.setRotationZ(BigDecimal.ZERO.setScale(4));
         config.setScale(BigDecimal.ONE.setScale(4));
+    }
+
+    private void normalizeAndDeduplicateProducts(ProductRepository productRepository, OrderRepository orderRepository) {
+        List<Product> allProducts = productRepository.findAll();
+        List<String> canonicalNames = List.of("AERO X1", "MONOLITH 02", "ORBIT T-4", "LUCENT V1");
+
+        for (String canonicalName : canonicalNames) {
+            List<Product> matches = allProducts.stream()
+                    .filter(p -> canonicalName.equalsIgnoreCase(p.getName()))
+                    .toList();
+
+            if (matches.size() > 1) {
+                // Find or choose the one to keep (canonical one or the first one)
+                Product canonicalProduct = matches.stream()
+                        .filter(p -> canonicalName.equals(p.getName()))
+                        .findFirst()
+                        .orElse(matches.get(0));
+
+                // If the one we keep is not uppercase, rename it
+                if (!canonicalName.equals(canonicalProduct.getName())) {
+                    canonicalProduct.setName(canonicalName);
+                    productRepository.save(canonicalProduct);
+                }
+
+                // Delete others after moving orders
+                for (Product duplicate : matches) {
+                    if (duplicate.getId().equals(canonicalProduct.getId())) {
+                        continue;
+                    }
+
+                    // Move orders
+                    List<Order> orders = orderRepository.findAll().stream()
+                            .filter(o -> o.getProduct() != null && o.getProduct().getId().equals(duplicate.getId()))
+                            .toList();
+
+                    for (Order order : orders) {
+                        order.setProduct(canonicalProduct);
+                        orderRepository.save(order);
+                    }
+
+                    // Delete duplicate
+                    productRepository.delete(duplicate);
+                }
+            } else if (matches.size() == 1) {
+                // Just rename to uppercase if needed
+                Product product = matches.get(0);
+                if (!canonicalName.equals(product.getName())) {
+                    product.setName(canonicalName);
+                    productRepository.save(product);
+                }
+            }
+        }
     }
 }

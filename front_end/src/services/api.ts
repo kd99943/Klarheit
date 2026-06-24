@@ -116,11 +116,17 @@ interface ApiErrorPayload {
 
 const DEFAULT_API_BASE_URL = "http://localhost:8081/api/v1";
 const runtimeEnv = (window as unknown as Record<string, Record<string, string>>).__ENV__;
-const API_BASE_URL = (
-  runtimeEnv?.VITE_API_BASE_URL?.trim() ||
-  import.meta.env.VITE_API_BASE_URL?.trim() ||
-  DEFAULT_API_BASE_URL
-).replace(/\/$/, "");
+
+const resolveApiBaseUrl = () => {
+  const envVal = runtimeEnv?.VITE_API_BASE_URL?.trim();
+  // Filter out unsubstituted env templates (e.g. "${VITE_API_BASE_URL}" in local development)
+  if (envVal && !envVal.startsWith("${")) {
+    return envVal;
+  }
+  return import.meta.env.VITE_API_BASE_URL?.trim() || DEFAULT_API_BASE_URL;
+};
+
+const API_BASE_URL = resolveApiBaseUrl().replace(/\/$/, "");
 
 // Warn if running in production with localhost API URL
 if (import.meta.env.PROD && API_BASE_URL.includes("localhost")) {

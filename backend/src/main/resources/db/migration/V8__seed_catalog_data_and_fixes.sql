@@ -2,6 +2,9 @@
 -- Seeds catalog data previously handled by DataInitializer.java,
 -- adds database-level defaults, and cleans up legacy columns.
 
+-- Ensure this session uses utf8mb4 so Chinese characters in INSERT statements work correctly.
+SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
+
 -- 1. Seed products (skip if already present)
 INSERT IGNORE INTO products (name, material, base_price, image_url, name_en, name_zh, material_en, material_zh)
 VALUES
@@ -42,13 +45,8 @@ VALUES
     ('AR_ONYX',        0.00,  60.00, 'COATING', 'Onyx AR Coating',            'Premium anti-reflective coating for glare reduction.'),
     ('HEV_BLUE',       0.00,  30.00, 'COATING', 'HEV Filter',                 'Blue light filtering treatment for daily screen use.');
 
--- 4. Add unique constraint on (product_id, finish_id) for AR configs
---    so that DataInitializer upsert logic and future migrations can use INSERT IGNORE.
-ALTER TABLE product_ar_configs
-    ADD CONSTRAINT uk_ar_configs_product_finish UNIQUE (product_id, finish_id);
+-- 4. Add unique constraint on (product_id, finish_id) for AR configs.
+--    Moved to V11 to keep this file idempotent (INSERT IGNORE + UPDATE only).
 
--- 4. Add database-level default for orders.created_at (already set in V2, omitting to prevent syntax error)
-
--- 5. Make legacy name/material columns nullable (they are redundant with name_en/material_en)
-ALTER TABLE products MODIFY name VARCHAR(120) NULL;
-ALTER TABLE products MODIFY material VARCHAR(120) NULL;
+-- 5. Make legacy name/material columns nullable.
+--    Moved to V11 to keep this file idempotent.

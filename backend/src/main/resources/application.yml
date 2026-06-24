@@ -8,6 +8,12 @@ spring:
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: ${DB_DRIVER_CLASS_NAME:com.mysql.cj.jdbc.Driver}
+    hikari:
+      connection-init-sql: "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci"
+      data-source-properties:
+        useUnicode: true
+        characterEncoding: UTF-8
+        serverTimezone: UTC
   jpa:
     hibernate:
       ddl-auto: ${JPA_DDL_AUTO:validate}

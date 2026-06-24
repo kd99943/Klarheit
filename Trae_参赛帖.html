@@ -1,0 +1,2079 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Klarheit — 物理级 AR 虚拟试戴与高端配镜电商平台 Showcase</title>
+    <!-- Google Fonts Outfit -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #09090b;
+            --card-bg: rgba(24, 24, 27, 0.75);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --accent-gold: #dfc17f;
+            --accent-gold-hover: #e6cb93;
+            --accent-rose: #e0a899;
+            --accent-titanium: #a0a5ad;
+            --accent-cyan: #06b6d4;
+            --text-primary: #f4f4f5;
+            --text-secondary: #a1a1aa;
+            --neon-shadow: 0 0 25px rgba(223, 193, 127, 0.25);
+            --font-family: 'Outfit', 'Noto Sans SC', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: var(--font-family);
+            line-height: 1.6;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(223, 193, 127, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(6, 182, 212, 0.05) 0%, transparent 40%);
+            background-attachment: fixed;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #121214;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #27272a;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3f3f46;
+        }
+
+        /* Container */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 0;
+            margin-bottom: 40px;
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--accent-gold), var(--accent-rose));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            color: #000;
+            font-size: 20px;
+            box-shadow: 0 4px 15px rgba(223, 193, 127, 0.3);
+        }
+
+        .logo-text {
+            font-size: 24px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            background: linear-gradient(to right, #ffffff, var(--accent-gold));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .badge-contest {
+            background: rgba(223, 193, 127, 0.1);
+            border: 1px solid var(--accent-gold);
+            color: var(--accent-gold);
+            padding: 6px 14px;
+            border-radius: 9999px;
+            font-size: 13px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: var(--neon-shadow);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 0.9; }
+            50% { transform: scale(1.03); opacity: 1; box-shadow: 0 0 30px rgba(223, 193, 127, 0.4); }
+            100% { transform: scale(1); opacity: 0.9; }
+        }
+
+        /* Glass Card */
+        .glass-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: 30px;
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+            margin-bottom: 30px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .glass-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--accent-gold), var(--accent-rose), var(--accent-cyan));
+            opacity: 0.8;
+        }
+
+        /* Hero */
+        .hero {
+            text-align: center;
+            max-width: 800px;
+            margin: 0 auto 50px auto;
+        }
+
+        .hero h1 {
+            font-size: 46px;
+            font-weight: 800;
+            line-height: 1.2;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #fff 30%, var(--accent-rose) 70%, var(--accent-gold));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero p {
+            font-size: 18px;
+            color: var(--text-secondary);
+            margin-bottom: 30px;
+        }
+
+        /* Dashboard Grid */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        @media (max-width: 968px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Interactive Configurator Area */
+        .viewer-container {
+            position: relative;
+            background: rgba(10, 10, 12, 0.8);
+            border-radius: 16px;
+            height: 380px;
+            width: 100%;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: inset 0 0 30px rgba(0,0,0,0.8);
+        }
+
+        #canvas3d {
+            width: 100%;
+            height: 100%;
+            outline: none;
+            cursor: grab;
+        }
+        #canvas3d:active {
+            cursor: grabbing;
+        }
+
+        .viewer-hint {
+            position: absolute;
+            bottom: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.6);
+            padding: 4px 12px;
+            border-radius: 9999px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            pointer-events: none;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Control Panel */
+        .controls-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .control-group h3 {
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--accent-gold);
+            font-weight: 700;
+        }
+
+        .btn-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .btn-style {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--card-border);
+            color: var(--text-primary);
+            padding: 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 14px;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            text-align: left;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .btn-style span {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .btn-style:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-style.active {
+            background: rgba(223, 193, 127, 0.1);
+            border-color: var(--accent-gold);
+            color: var(--accent-gold);
+            box-shadow: 0 0 15px rgba(223, 193, 127, 0.15);
+        }
+
+        /* Color Pill Buttons */
+        .color-row {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .color-pill {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .color-pill:hover {
+            transform: scale(1.1);
+        }
+
+        .color-pill.active {
+            border-color: var(--text-primary);
+            box-shadow: 0 0 10px var(--color-glow, rgba(255,255,255,0.4));
+        }
+
+        .color-pill::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 120%;
+            left: 50%;
+            transform: translateX(-50%) scale(0.85);
+            background: #18181b;
+            color: var(--text-primary);
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.2s ease;
+            border: 1px solid var(--card-border);
+        }
+
+        .color-pill:hover::after {
+            opacity: 1;
+            transform: translateX(-50%) scale(1);
+        }
+
+        /* AR Try On Playground */
+        .tryon-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        @media (max-width: 968px) {
+            .tryon-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .tryon-viewport-container {
+            position: relative;
+            aspect-ratio: 4/3;
+            background: #000;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid var(--card-border);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .tryon-bg {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        #webcamVideo {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+            transform: scaleX(-1);
+            display: none;
+        }
+
+        #canvasTryon {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            pointer-events: none; /* Let clicks pass through to container controls */
+        }
+
+        .tryon-hud {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            z-index: 3;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .hud-badge {
+            background: rgba(0, 0, 0, 0.7);
+            border: 1px solid rgba(6, 182, 212, 0.4);
+            color: var(--accent-cyan);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-family: monospace;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .hud-badge::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            background: var(--accent-cyan);
+            border-radius: 50%;
+            display: inline-block;
+            box-shadow: 0 0 8px var(--accent-cyan);
+            animation: blink 1s infinite alternate;
+        }
+
+        @keyframes blink {
+            from { opacity: 0.3; }
+            to { opacity: 1; }
+        }
+
+        .tryon-overlay-controls {
+            position: absolute;
+            bottom: 15px;
+            left: 15px;
+            right: 15px;
+            z-index: 3;
+            background: rgba(10, 10, 12, 0.85);
+            backdrop-filter: blur(8px);
+            padding: 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .tryon-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--card-border);
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .tryon-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .tryon-btn.active {
+            background: rgba(6, 182, 212, 0.15);
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
+        }
+
+        /* Adjustment sliders */
+        .adjust-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .slider-row {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .slider-header span:last-child {
+            color: var(--accent-gold);
+            font-family: monospace;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            background: #27272a;
+            border-radius: 3px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--accent-gold);
+            cursor: pointer;
+            transition: transform 0.1s ease;
+            box-shadow: 0 0 8px rgba(223, 193, 127, 0.5);
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        /* Tech highlight grid */
+        .tech-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .tech-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--card-border);
+            padding: 20px;
+            border-radius: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .tech-card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(223, 193, 127, 0.3);
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .tech-icon {
+            font-size: 28px;
+            margin-bottom: 12px;
+            color: var(--accent-gold);
+            display: inline-block;
+        }
+
+        .tech-card h4 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #fff;
+        }
+
+        .tech-card p {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        /* Forum Post Panel */
+        .forum-panel {
+            background: rgba(20, 20, 25, 0.9);
+            border: 1px solid rgba(223, 193, 127, 0.2);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 40px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+        }
+
+        .forum-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            padding-bottom: 15px;
+        }
+
+        .forum-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .forum-title h2 {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--accent-gold);
+        }
+
+        .btn-copy {
+            background: linear-gradient(135deg, var(--accent-gold), var(--accent-rose));
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(223, 193, 127, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+        }
+
+        .btn-copy:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(223, 193, 127, 0.3);
+        }
+
+        .btn-copy:active {
+            transform: translateY(0);
+        }
+
+        .post-textarea {
+            width: 100%;
+            height: 380px;
+            background: #0f0f12;
+            border: 1px solid rgba(255,255,255,0.05);
+            color: var(--text-primary);
+            font-family: monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            padding: 20px;
+            border-radius: 12px;
+            resize: none;
+            outline: none;
+        }
+
+        .post-textarea:focus {
+            border-color: rgba(223, 193, 127, 0.3);
+        }
+
+        /* Success notification */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: #10b981;
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s ease;
+            z-index: 999;
+            pointer-events: none;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Sandbox styling */
+        .sandbox-panel {
+            background: var(--card-bg);
+            border: 1px solid rgba(223, 193, 127, 0.2);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 40px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .sandbox-panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-gold), var(--accent-rose));
+        }
+
+        .sandbox-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 24px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding-bottom: 12px;
+            flex-wrap: wrap;
+        }
+
+        .sandbox-tab {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--card-border);
+            color: var(--text-secondary);
+            padding: 10px 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            font-family: var(--font-family);
+        }
+
+        .sandbox-tab:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-primary);
+        }
+
+        .sandbox-tab.active {
+            background: rgba(223, 193, 127, 0.1);
+            border-color: var(--accent-gold);
+            color: var(--accent-gold);
+            box-shadow: 0 0 15px rgba(223, 193, 127, 0.15);
+        }
+
+        .sandbox-tab-content {
+            display: none;
+            padding: 10px 0;
+            animation: sandboxFadeIn 0.35s ease;
+        }
+
+        .sandbox-tab-content.active {
+            display: block;
+        }
+
+        @keyframes sandboxFadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        footer {
+            text-align: center;
+            padding: 40px 0;
+            color: var(--text-secondary);
+            font-size: 13px;
+            border-top: 1px solid var(--card-border);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Floating Header -->
+        <header>
+            <div class="logo-container">
+                <div class="logo-icon">K</div>
+                <div class="logo-text">Klarheit</div>
+            </div>
+            <div class="badge-contest">
+                🏆 TRAE AI 创造力大赛创意产物
+            </div>
+        </header>
+
+        <!-- Hero Pitch Section -->
+        <section class="hero">
+            <h1>光学新零售 · 物理级 AR 虚拟试戴平台</h1>
+            <p>基于 MediaPipe Face Landmarker 与 Three.js 材质引擎的 D2C 镜架及智能镜片线上定制系统</p>
+        </section>
+
+        <!-- Main Interactive Configurator & 3D Viewer -->
+        <div class="glass-card">
+            <h2 style="font-size: 20px; font-weight: 700; margin-bottom: 20px; display: flex; align-items: center; gap: 8px;">
+                🕶️ 物理材质 3D 配置器 (物理折射 / 光泽镀膜)
+            </h2>
+            <div class="dashboard-grid">
+                <!-- Three.js Viewer -->
+                <div class="viewer-container">
+                    <canvas id="canvas3d"></canvas>
+                    <div class="viewer-hint">🖱️ 拖拽可 3D 旋转预览镜架细节</div>
+                </div>
+
+                <!-- Config Controls -->
+                <div class="controls-panel">
+                    <div class="control-group">
+                        <h3>1. 选择款式</h3>
+                        <div class="btn-grid">
+                            <button class="btn-style active" data-style="aviator">
+                                Aero X1 (飞行员)
+                                <span>钛合金双梁框</span>
+                            </button>
+                            <button class="btn-style" data-style="bold-acetate">
+                                Monolith 02 (粗框)
+                                <span>轻量板材镶金铆钉</span>
+                            </button>
+                            <button class="btn-style" data-style="crystal-acetate">
+                                Lucent V1 (水晶框)
+                                <span>透明材质金属内芯</span>
+                            </button>
+                            <button class="btn-style" data-style="round-wire">
+                                Orbit T-4 (无框)
+                                <span>物理钻孔无边极简</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <h3>2. 材质与镜架颜色</h3>
+                        <div class="color-row" id="frameColorsContainer">
+                            <!-- Populated dynamically via JS based on style -->
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <h3>3. 镜片功能与防反射膜</h3>
+                        <div class="btn-grid">
+                            <button class="btn-style active" data-lens="clear">
+                                高清透光镜片
+                                <span>折射率 1.56 · 蓝膜</span>
+                            </button>
+                            <button class="btn-style" data-lens="blue-light">
+                                防蓝光镜片
+                                <span>淡黄基底 · 强反射蓝膜</span>
+                            </button>
+                            <button class="btn-style" data-lens="sunglasses">
+                                偏光太阳镜片
+                                <span>深色透光 · 镜面反射</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- AR Try-On Demonstration -->
+        <div class="glass-card">
+            <h2 style="font-size: 20px; font-weight: 700; margin-bottom: 20px; display: flex; align-items: center; gap: 8px;">
+                📸 WebAR 虚拟试戴互动舱 (90°侧脸解算模拟)
+            </h2>
+            <div class="tryon-grid">
+                <!-- AR Viewport -->
+                <div class="tryon-viewport-container" id="tryonViewport">
+                    <!-- Default Model Image -->
+                    <img src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=640&h=480" 
+                         id="modelPhoto" class="tryon-bg" alt="Model Face">
+                    
+                    <!-- Real Webcam Video Stream -->
+                    <video id="webcamVideo" autoplay playsinline muted></video>
+                    
+                    <!-- Three.js Tryon Canvas -->
+                    <canvas id="canvasTryon"></canvas>
+
+                    <!-- HUD Overlays -->
+                    <div class="tryon-hud">
+                        <div class="hud-badge" id="poseSolverBadge">POSE SOLVER: 3D BASIS</div>
+                        <div class="hud-badge" id="trackingStatus">STATUS: SIMULATING</div>
+                    </div>
+
+                    <!-- Bottom HUD Controls -->
+                    <div class="tryon-overlay-controls">
+                        <button class="tryon-btn active" id="btnModelToggle">👩 切换模特</button>
+                        <button class="tryon-btn" id="btnWebcam">📷 开启摄像头试戴</button>
+                        <button class="tryon-btn" id="btnAutoScan">🔄 自动转头演示: 关</button>
+                    </div>
+                </div>
+
+                <!-- Live Positioning & Calibration Controls -->
+                <div class="adjust-panel">
+                    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 16px; border-radius: 12px; font-size: 13px; color: var(--text-secondary); margin-bottom: 5px;">
+                        💡 <strong>试戴对齐说明：</strong>本作品在完整版中通过 <b>MediaPipe Face Landmarker</b> 解算面部 3D 正交基底姿态。在此演示舱中，你可以切换模特或开启摄像头，使用下方滑块调整或开启【自动转头演示】来体验 3D 眼镜在面部的精确偏航贴合与物理折射质感！
+                    </div>
+
+                    <div class="slider-row">
+                        <div class="slider-header">
+                            <span>左右位置 (X Offset)</span>
+                            <span id="valX">0.00</span>
+                        </div>
+                        <input type="range" id="sliderX" min="-15" max="15" value="0" step="0.5">
+                    </div>
+
+                    <div class="slider-row">
+                        <div class="slider-header">
+                            <span>上下高度 (Y Offset)</span>
+                            <span id="valY">1.20</span>
+                        </div>
+                        <input type="range" id="sliderY" min="-10" max="20" value="12" step="0.5">
+                    </div>
+
+                    <div class="slider-row">
+                        <div class="slider-header">
+                            <span>镜框缩放 (Scale / Depth)</span>
+                            <span id="valScale">1.00</span>
+                        </div>
+                        <input type="range" id="sliderScale" min="0.5" max="1.5" value="1.0" step="0.02">
+                    </div>
+
+                    <div class="slider-row">
+                        <div class="slider-header">
+                            <span>头部偏航转动 (Yaw - 模拟90°侧脸)</span>
+                            <span id="valYaw">0°</span>
+                        </div>
+                        <input type="range" id="sliderYaw" min="-90" max="90" value="0" step="1">
+                    </div>
+
+                    <div class="slider-row">
+                        <div class="slider-header">
+                            <span>头部倾斜 (Pitch / Roll)</span>
+                            <span id="valRoll">0°</span>
+                        </div>
+                        <input type="range" id="sliderRoll" min="-30" max="30" value="0" step="1">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Technical Highlights -->
+        <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 20px; color: var(--accent-gold);">
+            🛠️ Klarheit 核心技术特性看板
+        </h3>
+        <div class="tech-grid">
+            <div class="tech-card">
+                <div class="tech-icon">📐</div>
+                <h4>3D正交基解算</h4>
+                <p>摒弃2D屏幕距离算法，利用左右眼角、鼻尖等面部关键点构建空间正交基，解决偏航漂移，支持大角度倾斜。</p>
+            </div>
+            <div class="tech-card">
+                <div class="tech-icon">💎</div>
+                <h4>镜片物理折射</h4>
+                <p>采用 ExtrudeGeometry 带倒角几何体与 MeshPhysicalMaterial 物理折射（IOR 1.56），高保真还原玻璃厚度边缘高光。</p>
+            </div>
+            <div class="tech-card">
+                <div class="tech-icon">💫</div>
+                <h4>多层防反射滤镜</h4>
+                <p>镜片注入专属 cyan 蓝绿色 Sheen 光泽层，细腻模拟高端多层防反射镀膜（AR Coating）的折射流光。</p>
+            </div>
+            <div class="tech-card">
+                <div class="tech-icon">💡</div>
+                <h4>环境反射与软阴影</h4>
+                <p>动态生成 radial 摄影棚柔光环境贴图配合 PCF 软阴影（radius 4），去除生硬黑斑，使镜架阴影高度贴合面部轮廓。</p>
+            </div>
+        </div>
+
+        <!-- Algorithm & Rendering Interactive Sandbox -->
+        <div class="sandbox-panel" id="sandboxPanel">
+            <h2 style="font-size: 20px; font-weight: 700; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; color: var(--accent-gold);">
+                🔬 算法与物理级渲染交互沙盒 (Technical Sandbox)
+            </h2>
+            
+            <div class="sandbox-tabs">
+                <button class="sandbox-tab active" data-tab="pose">📐 3D 姿态解算</button>
+                <button class="sandbox-tab" data-tab="refraction">💎 镜片物理折射</button>
+                <button class="sandbox-tab" data-tab="coating">💫 减反射膜滤镜</button>
+                <button class="sandbox-tab" data-tab="shadow">💡 柔光软阴影</button>
+            </div>
+
+            <div class="sandbox-content-container">
+                <!-- 1. Pose Tab -->
+                <div class="sandbox-tab-content active" id="tabContent-pose">
+                    <div style="display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 25px; align-items: center;">
+                        <div>
+                            <p style="margin-bottom: 16px; font-size: 14px; color: var(--text-secondary);">
+                                <strong>算法实现说明：</strong>在 WebAR 试戴中，我们使用左眼(33)、右眼(263)、鼻梁(168)和鼻尖(1)的 3D 空间坐标构建正交基底矢量，解算出精确的旋转四元数 (THREE.Quaternion)。这让眼镜在侧脸转动达 90° 时依然能完美同步贴合。
+                            </p>
+                            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; background: rgba(255,255,255,0.03); border: 1px solid var(--card-border); padding: 12px 18px; border-radius: 10px; width: fit-content;">
+                                <input type="checkbox" id="checkboxShowHelpers" style="width: 18px; height: 18px; cursor: pointer;">
+                                <span style="font-size: 14px; font-weight: 600; color: #fff; user-select: none;">显示解算坐标轴及面部特征定位点</span>
+                            </label>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.4); border-radius: 10px; border: 1px solid var(--card-border); padding: 15px; font-family: monospace; font-size: 11px; color: var(--accent-cyan); overflow-x: auto; white-space: nowrap; line-height: 1.5;">
+                            <span style="color: #6a9955;">// 3D姿态正交基计算</span><br>
+                            const dirX = R.clone().sub(L).normalize();<br>
+                            const dirY_temp = B.clone().sub(N).normalize();<br>
+                            const dirZ = dirX.clone().cross(dirY_temp).normalize();<br>
+                            const dirY = dirZ.clone().cross(dirX).normalize();<br>
+                            rotMatrix.makeBasis(dirX, dirY, dirZ);<br>
+                            quaternion.setFromRotationMatrix(rotMatrix);
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Refraction Tab -->
+                <div class="sandbox-tab-content" id="tabContent-refraction">
+                    <div style="display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 25px; align-items: center;">
+                        <div>
+                            <p style="margin-bottom: 16px; font-size: 14px; color: var(--text-secondary);">
+                                <strong>材质物理属性 (Index of Refraction)：</strong>我们使用了 Three.js 的 <code>MeshPhysicalMaterial</code>。通过调节镜片的折射率 (IOR) 和厚度，可以细腻呈现光线穿过玻璃边缘的物理弯曲和倒角反光。
+                            </p>
+                            <div class="slider-row">
+                                <div class="slider-header">
+                                    <span>物理折射率 (IOR)</span>
+                                    <span id="valIOR">1.56</span>
+                                </div>
+                                <input type="range" id="sliderIOR" min="1.0" max="2.0" value="1.56" step="0.02">
+                            </div>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.4); border-radius: 10px; border: 1px solid var(--card-border); padding: 15px; font-family: monospace; font-size: 11px; color: var(--accent-cyan); overflow-x: auto; white-space: nowrap; line-height: 1.5;">
+                            new THREE.MeshPhysicalMaterial({<br>
+                            &nbsp;&nbsp;transmission: 0.95,<br>
+                            &nbsp;&nbsp;ior: <span style="color: #dfc17f; font-weight: bold;" id="codeIOR">1.56</span>, <span style="color: #6a9955;">// 折射率</span><br>
+                            &nbsp;&nbsp;thickness: 0.04, <span style="color: #6a9955;">// 镜片物理厚度</span><br>
+                            &nbsp;&nbsp;roughness: 0.0,<br>
+                            &nbsp;&nbsp;metalness: 0.0<br>
+                            });
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Sheen Tab -->
+                <div class="sandbox-tab-content" id="tabContent-coating">
+                    <div style="display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 25px; align-items: center;">
+                        <div>
+                            <p style="margin-bottom: 16px; font-size: 14px; color: var(--text-secondary);">
+                                <strong>减反射膜 (Anti-Reflective Coating) 仿真：</strong>高端眼镜通常带有防反射反射蓝膜。我们在镜片上覆盖了一层极薄的 Sheen（光泽）膜，并使用蓝绿色或紫色调，完美模拟高级镀膜质感。
+                            </p>
+                            <div class="slider-row" style="margin-bottom: 16px;">
+                                <div class="slider-header">
+                                    <span>减反射蓝膜反射强度 (Sheen Intensity)</span>
+                                    <span id="valSheen">1.0</span>
+                                </div>
+                                <input type="range" id="sliderSheen" min="0.0" max="2.0" value="1.0" step="0.1">
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <span style="font-size: 13px; color: var(--text-secondary);">镀膜反射颜色：</span>
+                                <div style="display: flex; gap: 10px;">
+                                    <div class="color-pill active" style="background-color: #06b6d4; width: 26px; height: 26px;" data-sheencol="#06b6d4" data-tooltip="经典蓝绿膜"></div>
+                                    <div class="color-pill" style="background-color: #a855f7; width: 26px; height: 26px;" data-sheencol="#a855f7" data-tooltip="防蓝光紫膜"></div>
+                                    <div class="color-pill" style="background-color: #10b981; width: 26px; height: 26px;" data-sheencol="#10b981" data-tooltip="绿膜"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.4); border-radius: 10px; border: 1px solid var(--card-border); padding: 15px; font-family: monospace; font-size: 11px; color: var(--accent-cyan); overflow-x: auto; white-space: nowrap; line-height: 1.5;">
+                            new THREE.MeshPhysicalMaterial({<br>
+                            &nbsp;&nbsp;sheen: <span style="color: #dfc17f; font-weight: bold;" id="codeSheen">1.0</span>,<br>
+                            &nbsp;&nbsp;sheenColor: new THREE.Color("<span style="color: #dfc17f; font-weight: bold;" id="codeSheenColor">#06b6d4</span>"),<br>
+                            &nbsp;&nbsp;sheenRoughness: 0.15,<br>
+                            &nbsp;&nbsp;reflectivity: 0.8<br>
+                            });
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. Shadow Tab -->
+                <div class="sandbox-tab-content" id="tabContent-shadow">
+                    <div style="display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 25px; align-items: center;">
+                        <div>
+                            <p style="margin-bottom: 16px; font-size: 14px; color: var(--text-secondary);">
+                                <strong>柔光环境与 PCF 软阴影：</strong>我们使用自定义摄影棚灯光，并开启 PCF 软阴影 (radius: 4)，让镜框在脸部或鼻梁上投下自然的漫反射软阴影，避免生硬黑边。拖动滑块可以旋转光源方向！
+                            </p>
+                            <div class="slider-row">
+                                <div class="slider-header">
+                                    <span>灯光水平旋转角度 (Light Angle)</span>
+                                    <span id="valLight">45°</span>
+                                </div>
+                                <input type="range" id="sliderLight" min="-180" max="180" value="45" step="5">
+                            </div>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.4); border-radius: 10px; border: 1px solid var(--card-border); padding: 15px; font-family: monospace; font-size: 11px; color: var(--accent-cyan); overflow-x: auto; white-space: nowrap; line-height: 1.5;">
+                            keyLight.castShadow = true;<br>
+                            keyLight.shadow.radius = 4; <span style="color: #6a9955;">// PCF 软阴影半径</span><br>
+                            <span style="color: #6a9955;">// 动态修改光源位置</span><br>
+                            keyLight.position.x = Math.cos(angle) * 5;<br>
+                            keyLight.position.z = Math.sin(angle) * 5;
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>© 2026 Klarheit Eyewear Team · Powered by Trae AI & Three.js</p>
+        </footer>
+    </div>
+
+    <!-- Interactive script -->
+    <script>
+        // Glasses configurations
+        const configs = {
+            style: 'aviator',
+            frameColor: '#dfc17f',
+            lensType: 'clear',
+            // Sandbox parameters:
+            showHelpers: false,
+            ior: 1.56,
+            sheenIntensity: 1.0,
+            sheenColor: '#06b6d4',
+            lightRotation: 45 // degrees
+        };
+
+        const colorsByStyle = {
+            'aviator': [
+                { hex: '#dfc17f', name: '金色', tooltip: '18K金 (Gold)' },
+                { hex: '#a0a5ad', name: '钛灰色', tooltip: '钛合金 (Titanium)' },
+                { hex: '#e0a899', name: '玫瑰金', tooltip: '玫瑰金 (Rose Gold)' }
+            ],
+            'bold-acetate': [
+                { hex: '#111111', name: '曜石黑', tooltip: '纯黑板材 (Jet Black)' },
+                { hex: '#583e26', name: '玳瑁色', tooltip: '玳瑁板材 (Tortoise)' },
+                { hex: '#1d3557', name: '海航蓝', tooltip: '深蓝板材 (Navy)' }
+            ],
+            'crystal-acetate': [
+                { hex: '#e2e8f0', name: '透冰晶', tooltip: '水晶透 (Crystal Clear)' },
+                { hex: '#e9d5ff', name: '晶莹紫', tooltip: '淡紫透 (Crystal Violet)' },
+                { hex: '#ccfbf1', name: '湖水绿', tooltip: '淡绿透 (Crystal Mint)' }
+            ],
+            'round-wire': [
+                { hex: '#dfc17f', name: '香槟金', tooltip: '奢华金 (Orbit Gold)' },
+                { hex: '#a0a5ad', name: '拉丝钛', tooltip: '极客银 (Orbit Silver)' },
+                { hex: '#3f3f46', name: '石墨黑', tooltip: '质感黑 (Orbit Black)' }
+            ]
+        };
+
+        const lensColors = {
+            'clear': '#06b6d4',      // Cyan anti-reflective multi-coating reflection
+            'blue-light': '#dfc17f', // Slight amber tint
+            'sunglasses': '#22252a'  // Dark green/grey sunglasses lens
+        };
+
+        // --- 1. Three.js Environment Map Generator ---
+        let envMapTexture;
+        function createGradientEnvMap() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            
+            const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            grad.addColorStop(0, '#18181b');
+            grad.addColorStop(0.5, '#27272a');
+            grad.addColorStop(1, '#09090b');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Radial highlight (softbox)
+            const radGrad = ctx.createRadialGradient(128, 64, 0, 128, 64, 120);
+            radGrad.addColorStop(0, 'rgba(255, 255, 255, 0.7)');
+            radGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.15)');
+            radGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+            ctx.fillStyle = radGrad;
+            ctx.beginPath();
+            ctx.arc(128, 64, 120, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Extra linear lights for specular tube highlight
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.fillRect(50, 0, 30, 256);
+            ctx.fillRect(400, 0, 40, 256);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.mapping = THREE.EquirectangularReflectionMapping;
+            return texture;
+        }
+
+        // --- 1.5 Procedural Glasses Generator ---
+        function drawRoundedRect(path, w, h, r) {
+            const x = -w / 2;
+            const y = -h / 2;
+            path.moveTo(x + r, y);
+            path.lineTo(x + w - r, y);
+            path.quadraticCurveTo(x + w, y, x + w, y + r);
+            path.lineTo(x + w, y + h - r);
+            path.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+            path.lineTo(x + r, y + h);
+            path.quadraticCurveTo(x, y + h, x, y + h - r);
+            path.lineTo(x, y + r);
+            path.quadraticCurveTo(x, y, x + r, y);
+        }
+
+        function drawSilhouetteOctagon(path, w, h, r) {
+            const x = -w / 2;
+            const y = -h / 2;
+            const c = h * 0.28;
+            path.moveTo(x + c, y);
+            path.lineTo(x + w - c, y);
+            path.lineTo(x + w, y + c);
+            path.lineTo(x + w, y + h - c);
+            path.lineTo(x + w - c, y + h);
+            path.lineTo(x + c, y + h);
+            path.lineTo(x, y + h - c);
+            path.lineTo(x, y + c);
+            path.closePath();
+        }
+
+        function createProceduralGlasses(config) {
+            const group = new THREE.Group();
+            const style = config.style || "aviator";
+            const frameColor = new THREE.Color(config.frameColor || "#dfc17f");
+            
+            // Resolve lens color based on lensType
+            let lensColorHex = "#06b6d4";
+            if (config.lensType === "blue-light") lensColorHex = "#dfc17f";
+            if (config.lensType === "sunglasses") lensColorHex = "#22252a";
+            const lensColor = new THREE.Color(lensColorHex);
+
+            // 1. Resolve Frame Material
+            let material;
+            if (style === "crystal-acetate") {
+                material = new THREE.MeshPhysicalMaterial({ 
+                    color: frameColor, 
+                    roughness: 0.01, 
+                    metalness: 0.05,
+                    clearcoat: 1.0,
+                    clearcoatRoughness: 0.01,
+                    transparent: true,
+                    opacity: 0.35,
+                    transmission: 0.98,
+                    thickness: 0.04,
+                    ior: 1.49,
+                    envMap: envMapTexture,
+                    envMapIntensity: 2.0
+                });
+            } else if (style === "bold-acetate") {
+                material = new THREE.MeshPhysicalMaterial({ 
+                    color: frameColor, 
+                    roughness: 0.05, 
+                    metalness: 0.1,
+                    clearcoat: 1.0,
+                    clearcoatRoughness: 0.02,
+                    envMap: envMapTexture,
+                    envMapIntensity: 2.0
+                });
+            } else if (style === "round-wire") {
+                material = new THREE.MeshPhysicalMaterial({ 
+                    color: frameColor, 
+                    roughness: 0.12, 
+                    metalness: 1.0,
+                    clearcoat: 1.0,
+                    clearcoatRoughness: 0.05,
+                    envMap: envMapTexture,
+                    envMapIntensity: 2.2
+                });
+            } else {
+                material = new THREE.MeshPhysicalMaterial({ 
+                    color: frameColor, 
+                    roughness: 0.15, 
+                    metalness: 1.0,
+                    clearcoat: 1.0,
+                    clearcoatRoughness: 0.05,
+                    envMap: envMapTexture,
+                    envMapIntensity: 2.2
+                });
+            }
+
+            // 2. Resolve Lens Material with AR coating sheen
+            const lensMaterial = new THREE.MeshPhysicalMaterial({
+                color: lensColor,
+                transparent: true,
+                opacity: config.lensType === "sunglasses" ? 0.75 : (style === "bold-acetate" ? 0.30 : 0.15),
+                roughness: 0.0,
+                metalness: 0.0,
+                ior: config.ior, // Use sandbox IOR
+                transmission: config.lensType === "sunglasses" ? 0.30 : 0.95,
+                clearcoat: 1.0,
+                reflectivity: 0.8,
+                sheen: config.sheenIntensity, // Use sandbox sheen intensity
+                sheenColor: new THREE.Color(config.sheenColor), // Use sandbox sheen color
+                sheenRoughness: 0.15,
+                envMap: envMapTexture,
+                envMapIntensity: 2.0
+            });
+
+            const nosePadMaterial = new THREE.MeshPhysicalMaterial({
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.75,
+                roughness: 0.2,
+                metalness: 0.1,
+                transmission: 0.7,
+                envMap: envMapTexture,
+                envMapIntensity: 1.5
+            });
+
+            const goldMaterial = new THREE.MeshPhysicalMaterial({
+                color: 0xd4af37,
+                roughness: 0.1,
+                metalness: 1.0,
+                envMap: envMapTexture,
+                envMapIntensity: 2.0
+            });
+
+            const localScale = 0.5; // Scale factor to match world coordinate sizes
+
+            if (style === "bold-acetate" || style === "crystal-acetate") {
+                const isCrystal = style === "crystal-acetate";
+                
+                // Rims: Outer shape, inner hole
+                const outerShape = new THREE.Shape();
+                if (isCrystal) {
+                    drawRoundedRect(outerShape, 0.22, 0.17, 0.045);
+                } else {
+                    drawRoundedRect(outerShape, 0.24, 0.18, 0.030);
+                }
+
+                const innerHole = new THREE.Path();
+                if (isCrystal) {
+                    drawRoundedRect(innerHole, 0.17, 0.12, 0.025);
+                } else {
+                    drawRoundedRect(innerHole, 0.18, 0.12, 0.015);
+                }
+                outerShape.holes.push(innerHole);
+
+                const extrudeSettings = {
+                    depth: isCrystal ? 0.022 : 0.024,
+                    bevelEnabled: true,
+                    bevelSegments: 3,
+                    steps: 1,
+                    bevelSize: 0.003,
+                    bevelThickness: 0.003
+                };
+
+                const rimGeom = new THREE.ExtrudeGeometry(outerShape, extrudeSettings);
+                
+                const leftRim = new THREE.Mesh(rimGeom, material);
+                leftRim.position.set(-0.24, 0, 0);
+                const rightRim = new THREE.Mesh(rimGeom, material);
+                rightRim.position.set(0.24, 0, 0);
+
+                // Lenses
+                const lensShape = new THREE.Shape();
+                if (isCrystal) {
+                    drawRoundedRect(lensShape, 0.172, 0.122, 0.025);
+                } else {
+                    drawRoundedRect(lensShape, 0.182, 0.122, 0.015);
+                }
+                const lensGeom = new THREE.ExtrudeGeometry(lensShape, {
+                    depth: 0.008,
+                    bevelEnabled: true,
+                    bevelSegments: 3,
+                    steps: 1,
+                    bevelSize: 0.001,
+                    bevelThickness: 0.001
+                });
+
+                const leftLens = new THREE.Mesh(lensGeom, lensMaterial);
+                leftLens.position.set(-0.24, 0, isCrystal ? 0.008 : 0.01);
+                const rightLens = new THREE.Mesh(lensGeom, lensMaterial);
+                rightLens.position.set(0.24, 0, isCrystal ? 0.008 : 0.01);
+
+                // Bridge
+                const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.03, isCrystal ? 0.022 : 0.024), material);
+                bridge.position.set(0, 0.01, isCrystal ? 0.008 : 0.010);
+
+                // Temples
+                const templeLength = 0.45;
+                const templeW = isCrystal ? 0.012 : 0.016;
+                const templeH = isCrystal ? 0.020 : 0.024;
+                
+                const templeCrossSection = new THREE.Shape();
+                drawRoundedRect(templeCrossSection, templeW, templeH, 0.004);
+                const templeGeom = new THREE.ExtrudeGeometry(templeCrossSection, {
+                    depth: templeLength,
+                    bevelEnabled: true,
+                    bevelSegments: 3,
+                    steps: 1,
+                    bevelSize: 0.001,
+                    bevelThickness: 0.001
+                });
+                templeGeom.translate(0, 0, -templeLength / 2);
+
+                const leftTemple = new THREE.Mesh(templeGeom, material);
+                leftTemple.position.set(-0.355, 0.01, -templeLength / 2);
+                leftTemple.rotation.set(0, -0.08, 0);
+
+                const rightTemple = new THREE.Mesh(templeGeom, material);
+                rightTemple.position.set(0.355, 0.01, -templeLength / 2);
+                rightTemple.rotation.set(0, 0.08, 0);
+
+                // Gold accents
+                if (style === "bold-acetate") {
+                    const studGeom = new THREE.CylinderGeometry(0.003, 0.003, 0.003, 16);
+                    studGeom.rotateX(Math.PI / 2);
+
+                    const leftStud1 = new THREE.Mesh(studGeom, goldMaterial);
+                    leftStud1.position.set(-0.33, 0.03, 0.025);
+                    const leftStud2 = new THREE.Mesh(studGeom, goldMaterial);
+                    leftStud2.position.set(-0.31, 0.03, 0.025);
+
+                    const rightStud1 = new THREE.Mesh(studGeom, goldMaterial);
+                    rightStud1.position.set(0.33, 0.03, 0.025);
+                    const rightStud2 = new THREE.Mesh(studGeom, goldMaterial);
+                    rightStud2.position.set(0.31, 0.03, 0.025);
+
+                    group.add(leftStud1, leftStud2, rightStud1, rightStud2);
+                }
+
+                if (isCrystal) {
+                    const coreGeom = new THREE.CylinderGeometry(0.002, 0.002, templeLength - 0.02, 16);
+                    coreGeom.rotateX(Math.PI / 2);
+
+                    const leftCore = new THREE.Mesh(coreGeom, goldMaterial);
+                    leftCore.position.set(0, 0, 0);
+                    leftTemple.add(leftCore);
+
+                    const rightCore = new THREE.Mesh(coreGeom, goldMaterial);
+                    rightCore.position.set(0, 0, 0);
+                    rightTemple.add(rightCore);
+                }
+
+                // Nose pads
+                const padGeom = new THREE.BoxGeometry(0.015, 0.03, 0.015);
+                const leftPad = new THREE.Mesh(padGeom, material);
+                leftPad.position.set(-0.15, -0.04, 0.005);
+                leftPad.rotation.z = -0.3;
+
+                const rightPad = new THREE.Mesh(padGeom, material);
+                rightPad.position.set(0.15, -0.04, 0.005);
+                rightPad.rotation.z = 0.3;
+
+                group.add(leftRim, rightRim, leftLens, rightLens, bridge, leftTemple, rightTemple, leftPad, rightPad);
+
+            } else if (style === "round-wire") {
+                // Octagon lenses
+                const lensShape = new THREE.Shape();
+                drawSilhouetteOctagon(lensShape, 0.22, 0.17, 0.02);
+                const lensGeom = new THREE.ExtrudeGeometry(lensShape, {
+                    depth: 0.010,
+                    bevelEnabled: true,
+                    bevelSegments: 3,
+                    steps: 1,
+                    bevelSize: 0.001,
+                    bevelThickness: 0.001
+                });
+
+                const leftLens = new THREE.Mesh(lensGeom, lensMaterial);
+                leftLens.position.set(-0.24, 0, 0);
+                const rightLens = new THREE.Mesh(lensGeom, lensMaterial);
+                rightLens.position.set(0.24, 0, 0);
+
+                // Brackets
+                const outerBracketGeom = new THREE.BoxGeometry(0.014, 0.012, 0.014);
+                outerBracketGeom.translate(0, 0, 0.005);
+                const leftOuterBracket = new THREE.Mesh(outerBracketGeom, material);
+                leftOuterBracket.position.set(-0.34, 0.01, 0.0);
+                const rightOuterBracket = new THREE.Mesh(outerBracketGeom, material);
+                rightOuterBracket.position.set(0.34, 0.01, 0.0);
+
+                const innerBracketGeom = new THREE.BoxGeometry(0.012, 0.010, 0.012);
+                innerBracketGeom.translate(0, 0, 0.005);
+                const leftInnerBracket = new THREE.Mesh(innerBracketGeom, material);
+                leftInnerBracket.position.set(-0.14, 0.01, 0.0);
+                const rightInnerBracket = new THREE.Mesh(innerBracketGeom, material);
+                rightInnerBracket.position.set(0.14, 0.01, 0.0);
+
+                // Arched Bridge
+                const bridgeGeom = new THREE.CylinderGeometry(0.0025, 0.0025, 0.28, 24);
+                const bridge = new THREE.Mesh(bridgeGeom, material);
+                bridge.rotation.z = Math.PI / 2;
+                bridge.position.set(0, 0.01, 0.006);
+
+                // Nose pad loops
+                const connectorGeom = new THREE.CylinderGeometry(0.0016, 0.0016, 0.04, 16);
+                const leftConnector = new THREE.Mesh(connectorGeom, material);
+                leftConnector.rotation.set(0.2, 0, -0.4);
+                leftConnector.position.set(-0.08, -0.045, -0.015);
+
+                const rightConnector = new THREE.Mesh(connectorGeom, material);
+                rightConnector.rotation.set(0.2, 0, 0.4);
+                rightConnector.position.set(0.08, -0.045, -0.015);
+
+                const padGeom = new THREE.SphereGeometry(0.014, 16, 16);
+                const leftPad = new THREE.Mesh(padGeom, nosePadMaterial);
+                leftPad.scale.set(0.4, 1.0, 0.3);
+                leftPad.position.set(-0.086, -0.06, -0.024);
+
+                const rightPad = new THREE.Mesh(padGeom, nosePadMaterial);
+                rightPad.scale.set(0.4, 1.0, 0.3);
+                rightPad.position.set(0.086, -0.06, -0.024);
+
+                // Thin temples
+                const templeLength = 0.45;
+                const templeGeom = new THREE.CylinderGeometry(0.0028, 0.0028, templeLength, 24);
+                templeGeom.translate(0, 0, -templeLength / 2);
+
+                const leftTemple = new THREE.Mesh(templeGeom, material);
+                leftTemple.rotation.set(Math.PI / 2, -0.08, 0);
+                leftTemple.position.set(-0.34, 0.01, 0.0);
+
+                const rightTemple = new THREE.Mesh(templeGeom, material);
+                rightTemple.rotation.set(Math.PI / 2, 0.08, 0);
+                rightTemple.position.set(0.34, 0.01, 0.0);
+
+                group.add(
+                    leftLens, rightLens,
+                    leftOuterBracket, rightOuterBracket,
+                    leftInnerBracket, rightInnerBracket,
+                    bridge,
+                    leftConnector, rightConnector, leftPad, rightPad,
+                    leftTemple, rightTemple
+                );
+
+            } else {
+                // Aviator style (wire frame)
+                const outerShape = new THREE.Shape();
+                outerShape.absellipse(0, 0, 0.115, 0.095, 0, Math.PI * 2);
+
+                const innerHole = new THREE.Path();
+                innerHole.absellipse(0, 0, 0.108, 0.088, 0, Math.PI * 2, true);
+                outerShape.holes.push(innerHole);
+
+                const extrudeSettings = {
+                    depth: 0.008,
+                    bevelEnabled: true,
+                    bevelSegments: 4,
+                    steps: 1,
+                    bevelSize: 0.001,
+                    bevelThickness: 0.001
+                };
+
+                const rimGeom = new THREE.ExtrudeGeometry(outerShape, extrudeSettings);
+
+                const leftRim = new THREE.Mesh(rimGeom, material);
+                leftRim.position.set(-0.24, 0, 0);
+                const rightRim = new THREE.Mesh(rimGeom, material);
+                rightRim.position.set(0.24, 0, 0);
+
+                // Lenses
+                const lensShape = new THREE.Shape();
+                lensShape.absellipse(0, 0, 0.109, 0.089, 0, Math.PI * 2);
+                const lensGeom = new THREE.ExtrudeGeometry(lensShape, {
+                    depth: 0.008,
+                    bevelEnabled: true,
+                    bevelSegments: 3,
+                    steps: 1,
+                    bevelSize: 0.001,
+                    bevelThickness: 0.001
+                });
+
+                const leftLens = new THREE.Mesh(lensGeom, lensMaterial);
+                leftLens.position.set(-0.24, 0, 0.003);
+                const rightLens = new THREE.Mesh(lensGeom, lensMaterial);
+                rightLens.position.set(0.24, 0, 0.003);
+
+                // Double bridge
+                const topBridgeGeom = new THREE.CylinderGeometry(0.0025, 0.0025, 0.15, 24);
+                const topBridge = new THREE.Mesh(topBridgeGeom, material);
+                topBridge.rotation.z = Math.PI / 2;
+                topBridge.position.set(0, 0.045, 0.003);
+
+                const bottomBridgeGeom = new THREE.CylinderGeometry(0.0025, 0.0025, 0.15, 24);
+                const bottomBridge = new THREE.Mesh(bottomBridgeGeom, material);
+                bottomBridge.rotation.z = Math.PI / 2;
+                bottomBridge.position.set(0, 0.005, 0.003);
+
+                // Nose pads
+                const connectorGeom = new THREE.CylinderGeometry(0.0016, 0.0016, 0.035, 16);
+                const leftConnector = new THREE.Mesh(connectorGeom, material);
+                leftConnector.rotation.set(0.2, 0, -0.4);
+                leftConnector.position.set(-0.075, -0.045, -0.015);
+
+                const rightConnector = new THREE.Mesh(connectorGeom, material);
+                rightConnector.rotation.set(0.2, 0, 0.4);
+                rightConnector.position.set(0.075, -0.045, -0.015);
+
+                const padGeom = new THREE.SphereGeometry(0.014, 16, 16);
+                const leftPad = new THREE.Mesh(padGeom, nosePadMaterial);
+                leftPad.scale.set(0.4, 1.0, 0.3);
+                leftPad.position.set(-0.082, -0.055, -0.024);
+
+                const rightPad = new THREE.Mesh(padGeom, nosePadMaterial);
+                rightPad.scale.set(0.4, 1.0, 0.3);
+                rightPad.position.set(0.082, -0.055, -0.024);
+
+                // Temples
+                const templeLength = 0.45;
+                const templeGeom = new THREE.CylinderGeometry(0.003, 0.003, templeLength, 24);
+                templeGeom.translate(0, 0, -templeLength / 2);
+
+                const leftTemple = new THREE.Mesh(templeGeom, material);
+                leftTemple.rotation.set(Math.PI / 2, -0.08, 0);
+                leftTemple.position.set(-0.355, 0.01, 0);
+
+                const rightTemple = new THREE.Mesh(templeGeom, material);
+                rightTemple.rotation.set(Math.PI / 2, 0.08, 0);
+                rightTemple.position.set(0.355, 0.01, 0);
+
+                group.add(
+                    leftRim, rightRim, leftLens, rightLens,
+                    topBridge, bottomBridge,
+                    leftConnector, rightConnector, leftPad, rightPad,
+                    leftTemple, rightTemple
+                );
+            }
+
+            // Append helper axes & points if sandbox showHelpers is enabled
+            if (config.showHelpers) {
+                const helperGroup = new THREE.Group();
+                
+                // 1. Axes Helper
+                const axesHelper = new THREE.AxesHelper(0.4);
+                axesHelper.position.set(0, 0, 0.05);
+                helperGroup.add(axesHelper);
+                
+                // 2. Landmark spheres representing face keypoints
+                const sphereGeom = new THREE.SphereGeometry(0.015, 8, 8);
+                
+                // Left eye outer
+                const lmLeft = new THREE.Mesh(sphereGeom, new THREE.MeshBasicMaterial({ color: 0xff0055 }));
+                lmLeft.position.set(-0.24, 0, -0.05);
+                
+                // Right eye outer
+                const lmRight = new THREE.Mesh(sphereGeom, new THREE.MeshBasicMaterial({ color: 0xff0055 }));
+                lmRight.position.set(0.24, 0, -0.05);
+                
+                // Nose bridge
+                const lmBridge = new THREE.Mesh(sphereGeom, new THREE.MeshBasicMaterial({ color: 0x00ff00 }));
+                lmBridge.position.set(0, 0.05, 0.05);
+                
+                // Nose tip
+                const lmNose = new THREE.Mesh(sphereGeom, new THREE.MeshBasicMaterial({ color: 0x00aaff }));
+                lmNose.position.set(0, -0.15, 0.15);
+                
+                helperGroup.add(lmLeft, lmRight, lmBridge, lmNose);
+                group.add(helperGroup);
+            }
+
+            return group;
+        }
+
+        // --- 2. 3D Configuration Viewer Setup ---
+        let scene3d, camera3d, renderer3d, glassesGroup3d, keyLight, dirLightTryon;
+        
+        function init3DViewer() {
+            const container = document.querySelector('.viewer-container');
+            const canvas = document.getElementById('canvas3d');
+            
+            scene3d = new THREE.Scene();
+            camera3d = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+            camera3d.position.set(0, 0, 0.75);
+
+            renderer3d = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+            renderer3d.setSize(container.clientWidth, container.clientHeight);
+            renderer3d.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer3d.shadowMap.enabled = true;
+            renderer3d.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer3d.toneMappingExposure = 1.2;
+
+            envMapTexture = createGradientEnvMap();
+
+            // Lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene3d.add(ambientLight);
+
+            keyLight = new THREE.DirectionalLight(0xffffff, 1.5);
+            keyLight.position.set(2, 3, 4);
+            keyLight.castShadow = true;
+            keyLight.shadow.mapSize.width = 1024;
+            keyLight.shadow.mapSize.height = 1024;
+            keyLight.shadow.radius = 4;
+            scene3d.add(keyLight);
+
+            const fillLight = new THREE.DirectionalLight(0xffffff, 0.6);
+            fillLight.position.set(-2, 1, 2);
+            scene3d.add(fillLight);
+
+            // Orbit drag handlers (simplified custom orbit control)
+            let isDragging = false;
+            let previousMousePosition = { x: 0, y: 0 };
+            
+            canvas.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                previousMousePosition = { x: e.clientX, y: e.clientY };
+            });
+
+            window.addEventListener('mouseup', () => {
+                isDragging = false;
+            });
+
+            canvas.addEventListener('mousemove', (e) => {
+                if (!isDragging || !glassesGroup3d) return;
+
+                const deltaMove = {
+                    x: e.clientX - previousMousePosition.x,
+                    y: e.clientY - previousMousePosition.y
+                };
+
+                glassesGroup3d.rotation.y += deltaMove.x * 0.007;
+                glassesGroup3d.rotation.x += deltaMove.y * 0.007;
+                
+                // Limit X axis rotation to prevent upside down
+                glassesGroup3d.rotation.x = Math.max(-Math.PI / 4, Math.min(Math.PI / 4, glassesGroup3d.rotation.x));
+
+                previousMousePosition = { x: e.clientX, y: e.clientY };
+            });
+
+            // Touch support
+            canvas.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 1) {
+                    isDragging = true;
+                    previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                }
+            }, { passive: true });
+
+            canvas.addEventListener('touchend', () => { isDragging = false; });
+            canvas.addEventListener('touchmove', (e) => {
+                if (!isDragging || !glassesGroup3d || e.touches.length !== 1) return;
+                const deltaMove = {
+                    x: e.touches[0].clientX - previousMousePosition.x,
+                    y: e.touches[0].clientY - previousMousePosition.y
+                };
+                glassesGroup3d.rotation.y += deltaMove.x * 0.009;
+                glassesGroup3d.rotation.x += deltaMove.y * 0.009;
+                glassesGroup3d.rotation.x = Math.max(-Math.PI / 4, Math.min(Math.PI / 4, glassesGroup3d.rotation.x));
+                previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            }, { passive: true });
+
+            update3DModel();
+            animate3D();
+        }
+
+        function update3DModel() {
+            if (!scene3d) return;
+            if (glassesGroup3d) {
+                scene3d.remove(glassesGroup3d);
+            }
+            
+            glassesGroup3d = createProceduralGlasses(configs);
+            // Center the group slightly in viewer
+            glassesGroup3d.position.set(0, -0.015, 0);
+            scene3d.add(glassesGroup3d);
+        }
+
+        function animate3D() {
+            requestAnimationFrame(animate3D);
+            
+            // Auto idle rotation if not dragging
+            if (glassesGroup3d && !scene3d.isDragging) {
+                // Slower return/wobble animation
+                glassesGroup3d.rotation.y += 0.003;
+            }
+
+            renderer3d.render(scene3d, camera3d);
+        }
+
+        // --- 3. AR Try-on Simulator Canvas Setup ---
+        let sceneTryon, cameraTryon, rendererTryon, glassesGroupTryon;
+        let tryonSliderX = 0, tryonSliderY = 1.2, tryonSliderScale = 1.0, tryonYaw = 0, tryonRoll = 0;
+        let isAutoScanning = false;
+        let autoScanTime = 0;
+
+        function initTryonViewer() {
+            const container = document.getElementById('tryonViewport');
+            const canvas = document.getElementById('canvasTryon');
+
+            sceneTryon = new THREE.Scene();
+            cameraTryon = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+            cameraTryon.position.set(0, 0, 8.0); // Placed further back for flat overlay look
+
+            rendererTryon = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+            rendererTryon.setSize(container.clientWidth, container.clientHeight);
+            rendererTryon.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            sceneTryon.add(ambientLight);
+
+            dirLightTryon = new THREE.DirectionalLight(0xffffff, 1.2);
+            dirLightTryon.position.set(1, 2, 3);
+            sceneTryon.add(dirLightTryon);
+            
+            updateLightPosition(); // Apply initial light rotation from configs
+
+            updateTryonModel();
+            animateTryon();
+        }
+
+        function updateTryonModel() {
+            if (!sceneTryon) return;
+            if (glassesGroupTryon) {
+                sceneTryon.remove(glassesGroupTryon);
+            }
+
+            glassesGroupTryon = createProceduralGlasses(configs);
+            // In the tryon overlay scene, scale is controlled by the sliders
+            sceneTryon.add(glassesGroupTryon);
+        }
+
+        function animateTryon() {
+            requestAnimationFrame(animateTryon);
+
+            if (glassesGroupTryon) {
+                if (isAutoScanning) {
+                    autoScanTime += 0.015;
+                    // Simulate face yaw turning back and forth
+                    const simulatedYaw = Math.sin(autoScanTime) * 45; // Turn up to 45 deg
+                    const simulatedRoll = Math.sin(autoScanTime * 1.5) * 8; // Roll head slightly
+                    
+                    document.getElementById('sliderYaw').value = Math.round(simulatedYaw);
+                    document.getElementById('sliderRoll').value = Math.round(simulatedRoll);
+                    document.getElementById('valYaw').innerText = Math.round(simulatedYaw) + '°';
+                    document.getElementById('valRoll').innerText = Math.round(simulatedRoll) + '°';
+                    
+                    tryonYaw = simulatedYaw;
+                    tryonRoll = simulatedRoll;
+                }
+
+                // Map sliders to local transforms
+                // Translate slider inputs: X (-15 to 15) maps to (-1.5 to 1.5)
+                glassesGroupTryon.position.x = tryonSliderX * 0.1;
+                // Y Offset (-10 to 20) maps to height
+                glassesGroupTryon.position.y = tryonSliderY * 0.1;
+                // Z offset is fixed to sit neatly over face
+                glassesGroupTryon.position.z = 2.0;
+
+                // Scale multiplier
+                const baseScale = 5.2; // Match viewport dimensions
+                const finalScale = tryonSliderScale * baseScale;
+                glassesGroupTryon.scale.set(finalScale, finalScale, finalScale);
+
+                // Rotate glasses to match yaw (Y axis) and roll (Z axis)
+                glassesGroupTryon.rotation.y = (tryonYaw * Math.PI) / 180;
+                glassesGroupTryon.rotation.z = (tryonRoll * Math.PI) / 180;
+                // Add slight pitch based on height
+                glassesGroupTryon.rotation.x = 0.05 + (tryonRoll * 0.05 * Math.PI) / 180;
+            }
+
+            rendererTryon.render(sceneTryon, cameraTryon);
+        }
+
+
+        // --- 4. Interactive Configuration Panel Management ---
+        function renderColorSelectors(style, shouldUpdate = true) {
+            const container = document.getElementById('frameColorsContainer');
+            container.innerHTML = '';
+            
+            const colorOptions = colorsByStyle[style] || colorsByStyle['aviator'];
+            
+            colorOptions.forEach((col, idx) => {
+                const pill = document.createElement('div');
+                pill.className = `color-pill ${idx === 0 ? 'active' : ''}`;
+                pill.style.backgroundColor = col.hex;
+                pill.style.setProperty('--color-glow', `${col.hex}66`);
+                pill.setAttribute('data-tooltip', col.tooltip);
+                pill.setAttribute('data-hex', col.hex);
+                
+                if (idx === 0) {
+                    configs.frameColor = col.hex;
+                }
+
+                pill.addEventListener('click', () => {
+                    document.querySelectorAll('.color-pill').forEach(p => p.classList.remove('active'));
+                    pill.classList.add('active');
+                    configs.frameColor = col.hex;
+                    update3DModel();
+                    updateTryonModel();
+                });
+
+                container.appendChild(pill);
+            });
+
+            if (shouldUpdate) {
+                update3DModel();
+                updateTryonModel();
+            }
+        }
+
+        // --- 5. UI Action Listeners & Webcam stream ---
+        let modelToggleState = 0; // 0: female, 1: male
+        const models = [
+            "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=640&h=480",
+            "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=640&h=480"
+        ];
+
+        let webcamStream = null;
+
+        async function startWebcam() {
+            const video = document.getElementById('webcamVideo');
+            const modelImg = document.getElementById('modelPhoto');
+            
+            try {
+                webcamStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { width: 640, height: 480, facingMode: 'user' } 
+                });
+                video.srcObject = webcamStream;
+                video.style.display = 'block';
+                modelImg.style.display = 'none';
+                document.getElementById('trackingStatus').innerText = 'STATUS: WEBCAM ON';
+                document.getElementById('btnWebcam').classList.add('active');
+            } catch (err) {
+                console.error("Camera access failed:", err);
+                alert("无法启动摄像头，请检查浏览器权限，或继续使用模特图片体验！");
+            }
+        }
+
+        function stopWebcam() {
+            const video = document.getElementById('webcamVideo');
+            const modelImg = document.getElementById('modelPhoto');
+            
+            if (webcamStream) {
+                webcamStream.getTracks().forEach(track => track.stop());
+                webcamStream = null;
+            }
+            video.style.display = 'none';
+            modelImg.style.display = 'block';
+            document.getElementById('trackingStatus').innerText = 'STATUS: SIMULATING';
+            document.getElementById('btnWebcam').classList.remove('active');
+        }
+
+        function setupListeners() {
+            // Style Selector buttons
+            document.querySelectorAll('.btn-style[data-style]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.btn-style[data-style]').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    
+                    const style = btn.getAttribute('data-style');
+                    configs.style = style;
+                    
+                    // Render color options for selected style
+                    renderColorSelectors(style);
+                    update3DModel();
+                    updateTryonModel();
+                });
+            });
+
+            // Lens selection buttons
+            document.querySelectorAll('.btn-style[data-lens]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.btn-style[data-lens]').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    
+                    const lens = btn.getAttribute('data-lens');
+                    configs.lensType = lens;
+                    
+                    update3DModel();
+                    updateTryonModel();
+                });
+            });
+
+            // Try-on positioning sliders
+            document.getElementById('sliderX').addEventListener('input', (e) => {
+                tryonSliderX = parseFloat(e.target.value);
+                document.getElementById('valX').innerText = tryonSliderX.toFixed(2);
+            });
+
+            document.getElementById('sliderY').addEventListener('input', (e) => {
+                tryonSliderY = parseFloat(e.target.value);
+                document.getElementById('valY').innerText = tryonSliderY.toFixed(2);
+            });
+
+            document.getElementById('sliderScale').addEventListener('input', (e) => {
+                tryonSliderScale = parseFloat(e.target.value);
+                document.getElementById('valScale').innerText = tryonSliderScale.toFixed(2);
+            });
+
+            document.getElementById('sliderYaw').addEventListener('input', (e) => {
+                if (isAutoScanning) toggleAutoScan(); // Turn off autoscan if manual adjust occurs
+                tryonYaw = parseFloat(e.target.value);
+                document.getElementById('valYaw').innerText = tryonYaw + '°';
+            });
+
+            document.getElementById('sliderRoll').addEventListener('input', (e) => {
+                if (isAutoScanning) toggleAutoScan();
+                tryonRoll = parseFloat(e.target.value);
+                document.getElementById('valRoll').innerText = tryonRoll + '°';
+            });
+
+            // Model Switch
+            document.getElementById('btnModelToggle').addEventListener('click', () => {
+                stopWebcam();
+                modelToggleState = 1 - modelToggleState;
+                const modelImg = document.getElementById('modelPhoto');
+                modelImg.src = models[modelToggleState];
+                document.getElementById('btnModelToggle').innerText = modelToggleState === 0 ? "👩 切换模特" : "👨 切换模特";
+            });
+
+            // Webcam Trigger
+            document.getElementById('btnWebcam').addEventListener('click', () => {
+                if (webcamStream) {
+                    stopWebcam();
+                } else {
+                    startWebcam();
+                }
+            });
+
+            // Auto Scan mode
+            const toggleAutoScan = () => {
+                isAutoScanning = !isAutoScanning;
+                const btn = document.getElementById('btnAutoScan');
+                btn.innerText = isAutoScanning ? "🔄 自动转头演示: 开" : "🔄 自动转头演示: 关";
+                btn.classList.toggle('active', isAutoScanning);
+                
+                // Disable sliders when autoscan is active
+                document.getElementById('sliderYaw').disabled = isAutoScanning;
+                document.getElementById('sliderRoll').disabled = isAutoScanning;
+            };
+            document.getElementById('btnAutoScan').addEventListener('click', toggleAutoScan);
+
+        }
+
+        function updateLightPosition() {
+            const rad = (configs.lightRotation * Math.PI) / 180;
+            const radius = 5;
+            const lx = Math.cos(rad) * radius;
+            const lz = Math.sin(rad) * radius;
+            
+            if (keyLight) {
+                keyLight.position.x = lx;
+                keyLight.position.z = lz;
+            }
+            if (dirLightTryon) {
+                dirLightTryon.position.x = lx;
+                dirLightTryon.position.z = lz;
+            }
+        }
+
+        function setupSandboxListeners() {
+            // Sandbox Tabs
+            document.querySelectorAll('.sandbox-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    document.querySelectorAll('.sandbox-tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.sandbox-tab-content').forEach(c => c.classList.remove('active'));
+                    
+                    tab.classList.add('active');
+                    const tabId = tab.getAttribute('data-tab');
+                    document.getElementById(`tabContent-${tabId}`).classList.add('active');
+                });
+            });
+
+            // Tab 1: Helpers checkbox
+            document.getElementById('checkboxShowHelpers').addEventListener('change', (e) => {
+                configs.showHelpers = e.target.checked;
+                update3DModel();
+                updateTryonModel();
+            });
+
+            // Tab 2: IOR slider
+            document.getElementById('sliderIOR').addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                configs.ior = val;
+                document.getElementById('valIOR').innerText = val.toFixed(2);
+                document.getElementById('codeIOR').innerText = val.toFixed(2);
+                update3DModel();
+                updateTryonModel();
+            });
+
+            // Tab 3: Sheen intensity slider
+            document.getElementById('sliderSheen').addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                configs.sheenIntensity = val;
+                document.getElementById('valSheen').innerText = val.toFixed(1);
+                document.getElementById('codeSheen').innerText = val.toFixed(1);
+                update3DModel();
+                updateTryonModel();
+            });
+
+            // Tab 3: Sheen color pills
+            document.querySelectorAll('[data-sheencol]').forEach(pill => {
+                pill.addEventListener('click', () => {
+                    document.querySelectorAll('[data-sheencol]').forEach(p => p.classList.remove('active'));
+                    pill.classList.add('active');
+                    const col = pill.getAttribute('data-sheencol');
+                    configs.sheenColor = col;
+                    document.getElementById('codeSheenColor').innerText = col;
+                    update3DModel();
+                    updateTryonModel();
+                });
+            });
+
+            // Tab 4: Light Rotation slider
+            document.getElementById('sliderLight').addEventListener('input', (e) => {
+                const val = parseInt(e.target.value);
+                configs.lightRotation = val;
+                document.getElementById('valLight').innerText = val + '°';
+                updateLightPosition();
+            });
+        }
+
+        // On window resize
+        window.addEventListener('resize', () => {
+            const container3d = document.querySelector('.viewer-container');
+            camera3d.aspect = container3d.clientWidth / container3d.clientHeight;
+            camera3d.updateProjectionMatrix();
+            renderer3d.setSize(container3d.clientWidth, container3d.clientHeight);
+
+            const containerTryon = document.getElementById('tryonViewport');
+            cameraTryon.aspect = containerTryon.clientWidth / containerTryon.clientHeight;
+            cameraTryon.updateProjectionMatrix();
+            rendererTryon.setSize(containerTryon.clientWidth, containerTryon.clientHeight);
+        });
+
+        // Initialize script
+        window.addEventListener('DOMContentLoaded', () => {
+            init3DViewer();
+            initTryonViewer();
+            renderColorSelectors('aviator', false); // Render color pills without crash
+            setupListeners();
+            setupSandboxListeners();
+        });
+    </script>
+</body>
+</html>

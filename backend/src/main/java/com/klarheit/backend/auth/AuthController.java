@@ -47,7 +47,7 @@ public class AuthController {
                 .secure(true)
                 .path("/")
                 .maxAge(0)
-                .sameSite("Lax")
+                .sameSite("None")
                 .build();
         response.addHeader(org.springframework.http.HttpHeaders.SET_COOKIE, cookie.toString());
         return ResponseEntity.ok().build();
@@ -74,7 +74,7 @@ public class AuthController {
                 .secure(true)
                 .path("/")
                 .maxAge(86400) // 1 day
-                .sameSite("Lax")
+                .sameSite("None") // None required for cross-site cookie (frontend and backend on different subdomains)
                 .build();
         response.addHeader(org.springframework.http.HttpHeaders.SET_COOKIE, cookie.toString());
     }

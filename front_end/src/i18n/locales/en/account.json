@@ -46,5 +46,7 @@
   "compliance.eyebrow": "Compliance",
   "compliance.description": "Core safeguards visible to the client account.",
   "compliance.sessionActive": "Authenticated session is active and tied to your verified email identity.",
-  "compliance.dataSecure": "Prescription and order data stay within the secure Klarheit account workspace."
+  "compliance.dataSecure": "Prescription and order data stay within the secure Klarheit account workspace.",
+  "compliance.sessionBullet": "Authenticated session is active and tied to your verified email identity.",
+  "compliance.dataBullet": "Prescription and order data stay within the secure Klarheit account workspace."
 }

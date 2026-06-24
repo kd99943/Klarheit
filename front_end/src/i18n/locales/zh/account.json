@@ -46,5 +46,7 @@
   "compliance.eyebrow": "合规",
   "compliance.description": "客户账户可见的核心保障措施。",
   "compliance.sessionActive": "已验证会话处于活跃状态并与您的已验证邮箱身份绑定。",
-  "compliance.dataSecure": "处方和订单数据保存在安全的 Klarheit 账户工作区内。"
+  "compliance.dataSecure": "处方和订单数据保存在安全的 Klarheit 账户工作区内。",
+  "compliance.sessionBullet": "已验证会话处于活跃状态并与您的已验证邮箱身份绑定。",
+  "compliance.dataBullet": "处方和订单数据保存在安全的 Klarheit 账户工作区内。"
 }

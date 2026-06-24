@@ -31,7 +31,7 @@ RUN apk add --no-cache gettext
 COPY nginx.conf /etc/nginx/conf.d/default.conf.template
 
 # Runtime entrypoint: substitute env vars then start nginx
-CMD ["/bin/sh", "-c", "envsubst '${API_ORIGIN}' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
+CMD ["/bin/sh", "-c", "envsubst '${API_ORIGIN} ${PORT}' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
 
 # Extract build bundle output to host public root
 COPY --from=build /app/dist /usr/share/nginx/html

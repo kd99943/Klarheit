@@ -27,7 +27,8 @@ USER spring:spring
 # Copy production compiled executable from compiler output
 COPY --from=compiler /app/target/backend-0.0.1-SNAPSHOT.jar app.jar
 
-ENV PORT=8080
 EXPOSE 8080
 
-ENTRYPOINT ["java", "-Djava.security.egd=file:/dev/./urandom", "-jar", "app.jar"]
+# Use shell form so Railway's $PORT env var is expanded at runtime.
+# Falls back to 8080 if PORT is not set (e.g. local docker run).
+CMD ["sh", "-c", "java -Djava.security.egd=file:/dev/./urandom -Dserver.port=${PORT:-8080} -jar app.jar"]

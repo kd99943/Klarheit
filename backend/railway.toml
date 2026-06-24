@@ -1,0 +1,8 @@
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = ""
+healthcheckPath = "/actuator/health"
+healthcheckTimeout = 120

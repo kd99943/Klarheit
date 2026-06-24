@@ -47,8 +47,7 @@ VALUES
 ALTER TABLE product_ar_configs
     ADD CONSTRAINT uk_ar_configs_product_finish UNIQUE (product_id, finish_id);
 
--- 4. Add database-level default for orders.created_at
-ALTER TABLE orders ALTER COLUMN created_at SET DEFAULT CURRENT_TIMESTAMP;
+-- 4. Add database-level default for orders.created_at (already set in V2, omitting to prevent syntax error)
 
 -- 5. Make legacy name/material columns nullable (they are redundant with name_en/material_en)
 ALTER TABLE products MODIFY name VARCHAR(120) NULL;

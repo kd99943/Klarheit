@@ -1,9 +1,6 @@
 spring:
   datasource:
-    url: jdbc:h2:mem:klarheit_test;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
+    driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
       ddl-auto: none
@@ -17,5 +14,5 @@ spring:
 
 app:
   jwt:
-    secret: 8VLHM6VfkR9VlgG9Q9LYBfW9Whw+T2q8/qQ9cTzJ8K9e8ZrJ4h4dJyt2qG0J7q9S
+    secret: ${APP_JWT_SECRET:test-secret-key-change-me-minimum-32-characters-long}
     expiration-millis: 86400000

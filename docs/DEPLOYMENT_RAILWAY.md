@@ -126,7 +126,7 @@ startCommand = ""
 DB_URL=jdbc:mysql://${{MySQL.MYSQL_HOST}}:${{MySQL.MYSQL_PORT}}/${{MySQL.MYSQL_DATABASE}}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
 DB_USERNAME=${{MySQL.MYSQL_USER}}
 DB_PASSWORD=${{MySQL.MYSQL_PASSWORD}}
-APP_JWT_SECRET=KlarheitSecretKey2026RandomStringForJWT
+APP_JWT_SECRET=<生成一个32位以上的随机字符串，例如: openssl rand -base64 32>
 SPRING_PROFILES_ACTIVE=prod
 JPA_DDL_AUTO=none
 FLYWAY_ENABLED=true

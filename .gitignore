@@ -1,24 +1,73 @@
+# === Build Outputs ===
 backend/target/
 front_end/node_modules/
 front_end/dist/
+front_end/build/
+front_end/coverage/
 
-# Environment & secrets
+# === Environment & Secrets (CRITICAL) ===
+# All .env files except examples
 .env
 .env.local
 .env.*.local
 backend/.env
 backend/*.secret
+*.key
+*.pem
+*.crt
+*.pfx
+*.p12
+*.jks
+*.keystore
 
-# IDE
+# Sensitive key files (NEVER commit these)
+*密钥*.txt
+*secret*.txt
+*password*.txt
+*JWT*.txt
+
+# === Local Development Configs ===
+# application-local.yml contains DB passwords and dev-specific configs
+backend/src/main/resources/application-local.yml
+backend/src/main/resources/application-dev.yml
+
+# === Test & Build Artifacts ===
+# Test result outputs
+*.csv
+!front_end/metadata.json
+e2e_*.csv
+user_test_*.csv
+*_results.csv
+*_test_results.*
+
+# === Temporary & Working Documents ===
+# Personal working notes, reports that may contain sensitive data
+修复清单.md
+*审查报告*.md
+*测试报告*.md
+端到端测试报告*.md
+
+# === IDE & Editor ===
 .claude/
 .superpowers/
 .worktrees/
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 
-# Logs
+# === Logs ===
 *.log
+logs/
 
-# OS
+# === OS ===
 .DS_Store
 Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# === Backup Files ===
+*.bak
+*.tmp
+*.backup

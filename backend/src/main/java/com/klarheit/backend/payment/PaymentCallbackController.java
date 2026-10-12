@@ -1,10 +1,18 @@
 package com.klarheit.backend.payment;
 
+import com.alipay.api.internal.util.AlipaySignature;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.klarheit.backend.order.OrderService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
+import java.security.KeyFactory;
 import java.security.NoSuchAlgorithmException;
+import java.security.PublicKey;
+import java.security.Signature;
+import java.security.spec.X509EncodedKeySpec;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
@@ -33,6 +41,9 @@ public class PaymentCallbackController {
     @Value("${app.wechat.api-key:}")
     private String wechatApiKey;
 
+    @Value("${app.wechat.platform-public-key:}")
+    private String wechatPlatformPublicKey;
+
     @Value("${app.frontend-url:http://localhost:5173}")
     private String frontendUrl;
 
@@ -49,7 +60,6 @@ public class PaymentCallbackController {
             params.put(name, String.join(",", values));
         }
 
-        // Do not log raw params in production — may contain sensitive data
         log.info("Received Alipay callback for trade_no: {}", params.get("trade_no"));
 
         String outTradeNo = params.get("out_trade_no");
@@ -57,57 +67,202 @@ public class PaymentCallbackController {
         String tradeNo = params.get("trade_no");
 
         // --- Signature verification ---
-        // Production: integrate Alipay SDK and call:
-        //   boolean signVerified = AlipaySignature.rsaCheckV1(params, alipayPublicKey, "UTF-8", "RSA2");
-        // For sandbox/MVP: verify HMAC-SHA256 signature using shared callback secret.
-        String sign = params.get("sign");
-        if (callbackSecret == null || callbackSecret.isBlank()) {
-            log.warn("Alipay callback rejected: no callback secret configured (app.payment.callback-secret)");
+        // Production callbacks MUST be verified with the real Alipay public key (RSA2).
+        // The custom HMAC fallback was removed because it is not the official Alipay
+        // signature scheme and allowed forged callbacks when the secret leaked.
+        if (!isAlipayConfigured()) {
+            log.error("Alipay callback rejected: ALIPAY_PUBLIC_KEY is not configured. " +
+                    "Real callbacks cannot be verified without it. Set ALIPAY_PUBLIC_KEY.");
             return ResponseEntity.badRequest().body("failure");
         }
-        if (!verifyHmacSignature(params, sign, callbackSecret)) {
-            log.warn("Alipay callback rejected: signature verification failed for out_trade_no: {}", outTradeNo);
+        try {
+            boolean signVerified = AlipaySignature.rsaCheckV1(params, alipayPublicKey.trim(), "UTF-8", "RSA2");
+            if (!signVerified) {
+                log.warn("Alipay callback signature verification failed using SDK for order: {}", outTradeNo);
+                return ResponseEntity.badRequest().body("failure");
+            }
+            log.info("Alipay signature verified successfully using SDK for order: {}", outTradeNo);
+        } catch (Exception e) {
+            log.error("Exception during Alipay signature verification using SDK", e);
             return ResponseEntity.badRequest().body("failure");
         }
 
         if ("TRADE_SUCCESS".equals(tradeStatus) && outTradeNo != null) {
             String txId = tradeNo != null ? tradeNo : "ALIPAY-TX-" + System.currentTimeMillis();
-            orderService.completePayment(outTradeNo, txId, "ALIPAY");
+            java.math.BigDecimal paidAmount = parseAmount(params.get("total_amount"));
+            orderService.completePayment(outTradeNo, txId, "ALIPAY", paidAmount);
         }
 
         return ResponseEntity.ok("success");
     }
 
+    private java.math.BigDecimal parseAmount(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        try {
+            return new java.math.BigDecimal(raw.trim());
+        } catch (NumberFormatException e) {
+            log.warn("Could not parse payment amount '{}'", raw);
+            return null;
+        }
+    }
+
     @PostMapping("/wechat")
-    public ResponseEntity<String> handleWeChatCallback(@RequestBody String xmlData) {
+    public ResponseEntity<String> handleWeChatCallback(
+            @RequestHeader(value = "Wechatpay-Signature", required = false) String signature,
+            @RequestHeader(value = "Wechatpay-Timestamp", required = false) String timestamp,
+            @RequestHeader(value = "Wechatpay-Nonce", required = false) String nonceHeader,
+            @RequestHeader(value = "Wechatpay-Serial", required = false) String serialHeader,
+            @RequestBody String requestBody) {
+        
         log.info("Received WeChat Pay callback notification");
 
-        // Basic XML field extraction for sandbox/mock usage
-        String outTradeNo = extractXmlField(xmlData, "out_trade_no");
-        String transactionId = extractXmlField(xmlData, "transaction_id");
-        String resultCode = extractXmlField(xmlData, "result_code");
-        String sign = extractXmlField(xmlData, "sign");
+        ObjectMapper mapper = new ObjectMapper();
 
-        // --- Signature verification ---
-        // Production: verify HMAC-MD5 signature using WeChat API key per WeChat Pay docs.
-        // For sandbox/MVP: verify using shared callback secret.
-        String verifyKey = (wechatApiKey != null && !wechatApiKey.isBlank()) ? wechatApiKey : callbackSecret;
-        if (verifyKey == null || verifyKey.isBlank()) {
-            log.warn("WeChat callback rejected: no verification key configured");
-            return ResponseEntity.ok("<xml><return_code><![CDATA[FAIL]]></return_code><return_msg><![CDATA[Invalid signature]]></return_msg></xml>");
-        }
-        if (!verifyHmacSignatureXml(xmlData, sign, verifyKey)) {
-            log.warn("WeChat callback rejected: signature verification failed for out_trade_no: {}", outTradeNo);
-            return ResponseEntity.ok("<xml><return_code><![CDATA[FAIL]]></return_code><return_msg><![CDATA[Invalid signature]]></return_msg></xml>");
-        }
+        try {
+            if (requestBody.trim().startsWith("<xml>")) {
+                // Fallback XML check
+                String outTradeNo = extractXmlField(requestBody, "out_trade_no");
+                String transactionId = extractXmlField(requestBody, "transaction_id");
+                String resultCode = extractXmlField(requestBody, "result_code");
+                String sign = extractXmlField(requestBody, "sign");
 
-        if ("SUCCESS".equals(resultCode) && outTradeNo != null) {
-            String txId = transactionId != null ? transactionId : "WECHAT-TX-" + System.currentTimeMillis();
-            orderService.completePayment(outTradeNo, txId, "WECHAT");
-        }
+                String verifyKey = (wechatApiKey != null && !wechatApiKey.isBlank()) ? wechatApiKey : callbackSecret;
+                if (verifyKey == null || verifyKey.isBlank()) {
+                    log.warn("WeChat XML callback rejected: no verification key configured");
+                    return ResponseEntity.ok("<xml><return_code><![CDATA[FAIL]]></return_code><return_msg><![CDATA[Invalid signature]]></return_msg></xml>");
+                }
+                if (!verifyHmacSignatureXml(requestBody, sign, verifyKey)) {
+                    log.warn("WeChat XML callback rejected: signature verification failed for out_trade_no: {}", outTradeNo);
+                    return ResponseEntity.ok("<xml><return_code><![CDATA[FAIL]]></return_code><return_msg><![CDATA[Invalid signature]]></return_msg></xml>");
+                }
 
-        String successResponse = "<xml><return_code><![CDATA[SUCCESS]]></return_code><return_msg><![CDATA[OK]]></return_msg></xml>";
-        return ResponseEntity.ok(successResponse);
+                if ("SUCCESS".equals(resultCode) && outTradeNo != null) {
+                    String txId = transactionId != null ? transactionId : "WECHAT-TX-" + System.currentTimeMillis();
+                    orderService.completePayment(outTradeNo, txId, "WECHAT");
+                }
+                return ResponseEntity.ok("<xml><return_code><![CDATA[SUCCESS]]></return_code><return_msg><![CDATA[OK]]></return_msg></xml>");
+            } else {
+                // WeChat Pay API v3 Webhook (JSON)
+                // Step 1: Verify V3 signature. Production callbacks MUST be verified.
+                // Previously this was silently skipped when the key was missing, allowing
+                // forged callbacks. Now the callback is rejected instead.
+                if (!isWechatV3SignatureConfigured()) {
+                    log.error("WeChat v3 callback rejected: WECHAT_PLATFORM_PUBLIC_KEY is not configured. " +
+                            "Callbacks cannot be verified without it.");
+                    return ResponseEntity.badRequest().body("{\"code\":\"FAIL\",\"message\":\"Signature key not configured\"}");
+                }
+                if (signature == null || timestamp == null || nonceHeader == null) {
+                    log.warn("WeChat v3 callback rejected: missing required signature headers.");
+                    return ResponseEntity.badRequest().body("{\"code\":\"FAIL\",\"message\":\"Missing signature headers\"}");
+                }
+                if (!verifyWechatV3Signature(timestamp, nonceHeader, requestBody, signature)) {
+                    log.warn("WeChat v3 callback rejected: SHA256withRSA signature verification failed.");
+                    return ResponseEntity.badRequest().body("{\"code\":\"FAIL\",\"message\":\"Invalid signature\"}");
+                }
+                log.info("WeChat Pay v3 signature verified successfully.");
+
+                // Step 2: Parse and decrypt
+                JsonNode root = mapper.readTree(requestBody);
+                JsonNode resource = root.get("resource");
+                if (resource == null) {
+                    return ResponseEntity.badRequest().body("{\"code\":\"FAIL\",\"message\":\"Missing resource\"}");
+                }
+
+                String ciphertext = resource.get("ciphertext").asText();
+                String nonce = resource.get("nonce").asText();
+                String associatedData = resource.get("associated_data") != null ? resource.get("associated_data").asText() : "";
+
+                if (wechatApiKey == null || wechatApiKey.isBlank()) {
+                    log.warn("WeChat v3 callback rejected: WECHAT_API_KEY is not configured.");
+                    return ResponseEntity.badRequest().body("{\"code\":\"FAIL\",\"message\":\"Key not configured\"}");
+                }
+
+                String decryptedJson = decryptWechatV3Ciphertext(ciphertext, associatedData, nonce, wechatApiKey);
+                if (decryptedJson == null) {
+                    log.warn("WeChat v3 callback rejected: AES decryption failed.");
+                    return ResponseEntity.badRequest().body("{\"code\":\"FAIL\",\"message\":\"Decryption failed\"}");
+                }
+
+                JsonNode decryptedNode = mapper.readTree(decryptedJson);
+                String outTradeNo = decryptedNode.get("out_trade_no").asText();
+                String transactionId = decryptedNode.get("transaction_id").asText();
+                String tradeState = decryptedNode.get("trade_state").asText();
+
+                if ("SUCCESS".equals(tradeState)) {
+                    java.math.BigDecimal wechatPaidAmount = null;
+                    JsonNode amountNode = decryptedNode.get("amount");
+                    if (amountNode != null && amountNode.has("total")) {
+                        // WeChat reports amount in fen (cents); convert to yuan.
+                        wechatPaidAmount = java.math.BigDecimal.valueOf(amountNode.get("total").asLong(), 2);
+                    }
+                    orderService.completePayment(outTradeNo, transactionId, "WECHAT", wechatPaidAmount);
+                }
+
+                return ResponseEntity.ok("{\"code\":\"SUCCESS\",\"message\":\"OK\"}");
+            }
+        } catch (Exception e) {
+            log.error("Exception handling WeChat Pay callback", e);
+            if (requestBody.trim().startsWith("<xml>")) {
+                return ResponseEntity.ok("<xml><return_code><![CDATA[FAIL]]></return_code><return_msg><![CDATA[Error]]></return_msg></xml>");
+            } else {
+                return ResponseEntity.badRequest().body("{\"code\":\"FAIL\",\"message\":\"Error\"}");
+            }
+        }
+    }
+
+    private boolean isAlipayConfigured() {
+        return alipayPublicKey != null && !alipayPublicKey.isBlank();
+    }
+
+    private boolean isWechatV3SignatureConfigured() {
+        return wechatPlatformPublicKey != null && !wechatPlatformPublicKey.isBlank();
+    }
+
+    /**
+     * Verifies WeChat Pay API v3 webhook signature using SHA256withRSA.
+     * Constructs the message as: timestamp + "\n" + nonce + "\n" + body + "\n"
+     * then verifies against the platform certificate public key.
+     */
+    private boolean verifyWechatV3Signature(String timestamp, String nonce, String body, String signatureBase64) {
+        try {
+            String message = timestamp + "\n" + nonce + "\n" + body + "\n";
+            // Decode the PEM public key (strip headers if present)
+            String keyContent = wechatPlatformPublicKey.trim()
+                    .replace("-----BEGIN PUBLIC KEY-----", "")
+                    .replace("-----END PUBLIC KEY-----", "")
+                    .replaceAll("\\s+", "");
+            byte[] keyBytes = Base64.getDecoder().decode(keyContent);
+            X509EncodedKeySpec keySpec = new X509EncodedKeySpec(keyBytes);
+            PublicKey publicKey = KeyFactory.getInstance("RSA").generatePublic(keySpec);
+
+            Signature sig = Signature.getInstance("SHA256withRSA");
+            sig.initVerify(publicKey);
+            sig.update(message.getBytes(StandardCharsets.UTF_8));
+            return sig.verify(Base64.getDecoder().decode(signatureBase64));
+        } catch (Exception e) {
+            log.error("WeChat v3 signature verification error", e);
+            return false;
+        }
+    }
+
+    private String decryptWechatV3Ciphertext(String ciphertext, String associatedData, String nonce, String apiV3Key) {
+        try {
+            byte[] cipherBytes = java.util.Base64.getDecoder().decode(ciphertext);
+            javax.crypto.Cipher cipher = javax.crypto.Cipher.getInstance("AES/GCM/NoPadding");
+            javax.crypto.spec.SecretKeySpec keySpec = new javax.crypto.spec.SecretKeySpec(apiV3Key.getBytes(StandardCharsets.UTF_8), "AES");
+            javax.crypto.spec.GCMParameterSpec gcmSpec = new javax.crypto.spec.GCMParameterSpec(128, nonce.getBytes(StandardCharsets.UTF_8));
+            cipher.init(javax.crypto.Cipher.DECRYPT_MODE, keySpec, gcmSpec);
+            if (associatedData != null && !associatedData.isBlank()) {
+                cipher.updateAAD(associatedData.getBytes(StandardCharsets.UTF_8));
+            }
+            byte[] decrypted = cipher.doFinal(cipherBytes);
+            return new String(decrypted, StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            log.error("Failed to decrypt WeChat v3 ciphertext", e);
+            return null;
+        }
     }
 
     private String extractXmlField(String xml, String fieldName) {
@@ -139,7 +294,9 @@ public class PaymentCallbackController {
                 .map(e -> e.getKey() + "=" + e.getValue())
                 .toList());
         String computed = hmacSha256(payload, secret);
-        return sign.equals(computed);
+        return java.security.MessageDigest.isEqual(
+                sign.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                computed.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
     /**
@@ -164,7 +321,9 @@ public class PaymentCallbackController {
                 .map(e -> e.getKey() + "=" + e.getValue())
                 .toList());
         String computed = hmacSha256(payload, secret);
-        return sign.equals(computed);
+        return java.security.MessageDigest.isEqual(
+                sign.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                computed.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
     private String hmacSha256(String data, String secret) {

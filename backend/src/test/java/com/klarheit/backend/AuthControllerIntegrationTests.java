@@ -8,17 +8,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@ActiveProfiles("test")
-class AuthControllerIntegrationTests {
+class AuthControllerIntegrationTests extends BaseIntegrationTest {
     @Autowired
     private MockMvc mockMvc;
 
@@ -57,7 +51,7 @@ class AuthControllerIntegrationTests {
                                 }
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.token").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.token").isNotEmpty())
                 .andExpect(jsonPath("$.user.email").value("ava@example.com"))
                 .andReturn();
 

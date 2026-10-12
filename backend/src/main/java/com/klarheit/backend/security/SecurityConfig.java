@@ -39,8 +39,15 @@ public class SecurityConfig {
                 .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(restAuthenticationEntryPoint))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/api/v1/auth/**", "/api/v1/products/**", "/api/v1/lens-options/**", "/error", "/actuator/**", "/api/v1/payments/callback/**", "/api/v1/orders/*/status", "/api/v1/phone/send-code").permitAll()
+                        // Only /actuator/health is public; other actuator endpoints (prometheus, info) require authentication.
+                        // /api/v1/orders/*/status remains public so the payment "return" page can poll order state without a session.
+                        // Only auth endpoints that don't require an existing session are public.
+                        // /api/v1/auth/me is intentionally NOT permitAll so that unauthenticated
+                        // requests get a clean 401 instead of a 500 (anonymousUser lookup failure).
+                        .requestMatchers("/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/logout", "/api/v1/auth/forgot-password").permitAll()
+                        .requestMatchers("/api/v1/products/**", "/api/v1/lens-options/**", "/error", "/actuator/health", "/actuator/health/**", "/api/v1/payments/callback/**", "/api/v1/orders/*/status", "/api/v1/phone/send-code").permitAll()
                         .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
+                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)

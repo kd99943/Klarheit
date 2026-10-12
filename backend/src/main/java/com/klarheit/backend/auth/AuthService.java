@@ -82,7 +82,7 @@ public class AuthService implements UserService {
     }
 
     private UserProfileDTO toUserProfile(UserAccount user) {
-        return new UserProfileDTO(user.getId(), user.getEmail(), user.getFirstName(), user.getLastName(), user.getPhone(), user.isPhoneVerified());
+        return new UserProfileDTO(user.getId(), user.getEmail(), user.getFirstName(), user.getLastName(), user.getPhone(), user.isPhoneVerified(), user.getRole());
     }
 
     private String normalizeEmail(String email) {

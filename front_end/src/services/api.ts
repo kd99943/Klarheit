@@ -1,4 +1,5 @@
 import type { ARFrameConfig } from "../ar/types";
+import { track } from "./analytics";
 
 export interface Product {
   id: number;
@@ -10,6 +11,10 @@ export interface Product {
   materialZh: string;
   basePrice: number;
   imageUrl: string;
+  shape: string;
+  specsSize: string;
+  detailImages: string | null;
+  arConfigs?: ARFrameConfig[];
 }
 
 export interface UserProfile {
@@ -19,6 +24,7 @@ export interface UserProfile {
   lastName: string;
   phone: string | null;
   phoneVerified: boolean;
+  role: string;
 }
 
 export interface PhoneStatus {
@@ -162,11 +168,34 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     headers.set("Content-Type", "application/json");
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...init,
-    headers,
-    credentials: "include",
-  });
+  // Attach the JWT as a Bearer header when available. This works alongside the
+  // httpOnly cookie (credentials: "include") and serves as a fallback when the
+  // cookie is not stored (e.g. secure cookie rejected on local HTTP dev).
+  const token = getStoredAuthToken();
+  if (token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      ...init,
+      headers,
+      credentials: "include",
+    });
+  } catch (networkError) {
+    // fetch() 抛出 TypeError 的常见场景：
+    //  - 网络断开 / 服务器不可达
+    //  - CORS 被拒绝
+    //  - DNS 解析失败
+    // 浏览器原生错误消息是字面量 "Failed to fetch"，对用户不友好，统一转换为本地化提示。
+    // status: 0 表示网络层失败，便于调用方区分业务错误与网络错误。
+    track("api_network_error", {
+      endpoint: path,
+      method: init?.method ?? "GET",
+    });
+    throw new ApiError("网络连接失败，请检查网络后重试", { status: 0 });
+  }
 
   const contentType = response.headers.get("content-type");
   const payload: unknown = contentType?.includes("application/json")
@@ -174,6 +203,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     : await response.text();
 
   if (!response.ok) {
+    // On 401, clear any stale token so subsequent requests don't keep sending
+    // an invalid Bearer header, and so the AuthProvider can detect logout.
+    if (response.status === 401) {
+      logoutStoredAuthToken();
+    }
+    track("api_error", {
+      status_code: response.status,
+      endpoint: path,
+      method: init?.method ?? "GET",
+    });
     let message = `Request failed with status ${response.status}`;
 
     if (typeof payload === "string" && payload.trim()) {
@@ -343,4 +382,196 @@ export function resetPasswordViaSms(phone: string, code: string, newPassword: st
     method: "POST",
     body: JSON.stringify({ phone, code, newPassword }),
   });
+}
+
+// ── Address Book ──────────────────────────────────────────
+
+export interface AddressRequest {
+  recipientName: string;
+  phoneNumber: string;
+  province: string;
+  city: string;
+  district?: string;
+  detailAddress: string;
+  isDefault: boolean;
+}
+
+export interface AddressResponse {
+  id: number;
+  recipientName: string;
+  phoneNumber: string;
+  province: string;
+  city: string;
+  district?: string;
+  detailAddress: string;
+  isDefault: boolean;
+}
+
+export function fetchAddresses(): Promise<AddressResponse[]> {
+  return request<AddressResponse[]>("/addresses");
+}
+
+export function createAddress(payload: AddressRequest): Promise<AddressResponse> {
+  return request<AddressResponse>("/addresses", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateAddress(id: number, payload: AddressRequest): Promise<AddressResponse> {
+  return request<AddressResponse>(`/addresses/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteAddress(id: number): Promise<void> {
+  return request<void>(`/addresses/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export function setDefaultAddress(id: number): Promise<AddressResponse> {
+  return request<AddressResponse>(`/addresses/${id}/default`, {
+    method: "POST",
+  });
+}
+
+// ── Product Details & Filtering ───────────────────────────
+
+export function fetchProductById(id: number): Promise<Product> {
+  return request<Product>(`/products/${id}`);
+}
+
+export interface ProductFilterParams {
+  search?: string;
+  material?: string;
+  shape?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  sortBy?: string;
+}
+
+export function fetchProductsFiltered(params: ProductFilterParams): Promise<Product[]> {
+  const query = new URLSearchParams();
+  if (params.search) query.append("search", params.search);
+  if (params.material) query.append("material", params.material);
+  if (params.shape) query.append("shape", params.shape);
+  if (params.minPrice !== undefined) query.append("minPrice", params.minPrice.toString());
+  if (params.maxPrice !== undefined) query.append("maxPrice", params.maxPrice.toString());
+  if (params.sortBy) query.append("sortBy", params.sortBy);
+  
+  const queryString = query.toString();
+  return request<Product[]>(`/products${queryString ? "?" + queryString : ""}`);
+}
+
+// ── Order Details ──────────────────────────────────────────
+
+export interface LensOptionDetail {
+  type: string;
+  label: string;
+  additionalPrice: number;
+}
+
+export interface PrescriptionDetails {
+  sphOd: number;
+  sphOs: number;
+  cylOd: number;
+  cylOs: number;
+  axisOd: number;
+  axisOs: number;
+  pd: number;
+}
+
+export interface OrderDetailResponse {
+  orderNumber: string;
+  status: string;
+  totalAmount: number;
+  discountAmount: number;
+  appliedCouponCode: string | null;
+  createdAt: string;
+  paidAt: string | null;
+  customerFirstName: string;
+  customerLastName: string;
+  customerEmail: string;
+  shippingAddress: string;
+  paymentChannel: string | null;
+  gatewayTransactionId: string | null;
+  finishId: string | null;
+  productName: string;
+  productImageUrl: string;
+  lensOptions: LensOptionDetail[];
+  prescription: PrescriptionDetails | null;
+  carrier: string | null;
+  trackingNumber: string | null;
+}
+
+export function fetchOrderDetail(orderNumber: string): Promise<OrderDetailResponse> {
+  return request<OrderDetailResponse>(`/orders/${orderNumber}`);
+}
+
+// ── Admin Dashboard ────────────────────────────────────────
+
+export interface AdminStats {
+  totalOrders: number;
+  totalUsers: number;
+  totalSales: number;
+  averageOrderValue: number;
+}
+
+export function adminFetchOrders(page = 0, size = 20): Promise<PageResponse<OrderSummary>> {
+  return request<PageResponse<OrderSummary>>(`/admin/orders?page=${page}&size=${size}`);
+}
+
+export function adminShipOrder(orderNumber: string, carrier: string, trackingNumber: string): Promise<void> {
+  return request<void>(`/admin/orders/${orderNumber}/ship`, {
+    method: "POST",
+    body: JSON.stringify({ carrier, trackingNumber }),
+  });
+}
+
+export function adminCancelOrder(orderNumber: string): Promise<void> {
+  return request<void>(`/admin/orders/${orderNumber}/cancel`, {
+    method: "POST",
+  });
+}
+
+export function adminFetchStats(): Promise<AdminStats> {
+  return request<AdminStats>("/admin/stats");
+}
+
+export interface ProductRequest {
+  nameEn: string;
+  nameZh: string;
+  materialEn: string;
+  materialZh: string;
+  basePrice: number;
+  imageUrl: string;
+  shape?: string;
+  specsSize?: string;
+  detailImages?: string | null;
+}
+
+export function adminCreateProduct(payload: ProductRequest): Promise<Product> {
+  return request<Product>("/admin/products", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function adminUpdateProduct(id: number, payload: ProductRequest): Promise<Product> {
+  return request<Product>(`/admin/products/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function adminDeleteProduct(id: number): Promise<void> {
+  return request<void>(`/admin/products/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export function adminFetchUsers(page = 0, size = 20): Promise<PageResponse<UserProfile>> {
+  return request<PageResponse<UserProfile>>(`/admin/users?page=${page}&size=${size}`);
 }

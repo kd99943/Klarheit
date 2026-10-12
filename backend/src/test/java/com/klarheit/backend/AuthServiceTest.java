@@ -126,4 +126,84 @@ class AuthServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Invalid email or password");
     }
+
+    @Test
+    void getCurrentUser_success() {
+        String email = "john@example.com";
+        UserAccount user = UserAccount.builder()
+                .id(10L)
+                .email(email)
+                .firstName("John")
+                .lastName("Doe")
+                .phone("13812345678")
+                .phoneVerified(true)
+                .role("USER")
+                .build();
+
+        when(userAccountRepository.findByEmailIgnoreCase(email)).thenReturn(Optional.of(user));
+
+        com.klarheit.backend.auth.dto.UserProfileDTO profile = authService.getCurrentUser(email);
+
+        assertThat(profile).isNotNull();
+        assertThat(profile.id()).isEqualTo(10L);
+        assertThat(profile.email()).isEqualTo(email);
+        assertThat(profile.firstName()).isEqualTo("John");
+        assertThat(profile.lastName()).isEqualTo("Doe");
+        assertThat(profile.phone()).isEqualTo("13812345678");
+        assertThat(profile.phoneVerified()).isTrue();
+        assertThat(profile.role()).isEqualTo("USER");
+
+        verify(userAccountRepository).findByEmailIgnoreCase(email);
+    }
+
+    @Test
+    void getCurrentUser_throwsIllegalArgumentExceptionWhenEmailNotFound() {
+        String email = "nonexistent@example.com";
+        when(userAccountRepository.findByEmailIgnoreCase(email)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> authService.getCurrentUser(email))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Authenticated user could not be found.");
+
+        verify(userAccountRepository).findByEmailIgnoreCase(email);
+    }
+
+    @Test
+    void resetPassword_success() {
+        String phone = "13812345678";
+        String newPassword = "newPassword123";
+        String encodedPassword = "encodedNewPassword";
+
+        UserAccount user = UserAccount.builder()
+                .id(10L)
+                .email("john@example.com")
+                .phone(phone)
+                .passwordHash("old_hashed_password")
+                .build();
+
+        when(userAccountRepository.findByPhone(phone)).thenReturn(Optional.of(user));
+        when(passwordEncoder.encode(newPassword)).thenReturn(encodedPassword);
+        when(userAccountRepository.save(any(UserAccount.class))).thenReturn(user);
+
+        authService.resetPassword(phone, newPassword);
+
+        assertThat(user.getPasswordHash()).isEqualTo(encodedPassword);
+        verify(userAccountRepository).findByPhone(phone);
+        verify(passwordEncoder).encode(newPassword);
+        verify(userAccountRepository).save(user);
+    }
+
+    @Test
+    void resetPassword_throwsIllegalArgumentExceptionIfPhoneNotRegistered() {
+        String phone = "13800000000";
+        String newPassword = "newPassword123";
+
+        when(userAccountRepository.findByPhone(phone)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> authService.resetPassword(phone, newPassword))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("该手机号未注册");
+
+        verify(userAccountRepository).findByPhone(phone);
+    }
 }

@@ -21,6 +21,6 @@ public class UserAccountDetailsService implements UserDetailsService {
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         UserAccount user = userAccountRepository.findByEmailIgnoreCase(username)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found."));
-        return new User(user.getEmail(), user.getPasswordHash(), AuthorityUtils.NO_AUTHORITIES);
+        return new User(user.getEmail(), user.getPasswordHash(), org.springframework.security.core.authority.AuthorityUtils.createAuthorityList("ROLE_" + user.getRole().toUpperCase()));
     }
 }

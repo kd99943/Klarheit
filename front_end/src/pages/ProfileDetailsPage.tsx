@@ -30,7 +30,7 @@ import { PhoneBindingSection } from "../components/profile/PhoneBindingSection";
 export function ProfileDetailsPage() {
   const { t } = useTranslation("profile");
   const { user } = useAuth();
-  const { orders } = useOrders();
+  const { orders, error: ordersError } = useOrders();
 
   const accountInitials = user
     ? `${user.firstName.slice(0, 1)}${user.lastName.slice(0, 1)}`.toUpperCase()
@@ -88,7 +88,14 @@ export function ProfileDetailsPage() {
               <div className="hidden sm:block">
                 <div className="rounded-xl bg-white/8 backdrop-blur-sm border border-white/10 px-5 py-4 text-center">
                   <p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-white/45">{t("ordersCount")}</p>
-                  <p className="mt-2 text-3xl font-display font-light text-white">{orders.length}</p>
+                  {ordersError ? (
+                    <>
+                      <p className="mt-2 text-3xl font-display font-light text-white/40">—</p>
+                      <p className="mt-1 text-[10px] text-red-300 leading-tight">{ordersError}</p>
+                    </>
+                  ) : (
+                    <p className="mt-2 text-3xl font-display font-light text-white">{orders.length}</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -277,7 +284,7 @@ export function ProfileDetailsPage() {
               <div className="flex flex-col gap-3">
                 {[
                   { icon: UserRound, label: t("sidebar.actions.editProfile"), meta: t("sidebar.actions.editProfileMeta") },
-                  { icon: MapPin, label: t("sidebar.actions.addresses"), meta: t("sidebar.actions.addressesMeta") },
+                  { icon: MapPin, label: t("sidebar.actions.addresses"), meta: t("sidebar.actions.addressesMeta"), to: "/addresses" },
                   { icon: CreditCard, label: t("sidebar.actions.billing"), meta: t("sidebar.actions.billingMeta"), to: "/checkout" },
                   { icon: CalendarDays, label: t("sidebar.actions.appointments"), meta: t("sidebar.actions.appointmentsMeta") },
                 ].map((item) => {

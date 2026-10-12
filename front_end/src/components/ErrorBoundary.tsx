@@ -1,8 +1,12 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import i18n from "../i18n";
+import { track } from "../services/analytics";
 
 type ErrorBoundaryProps = {
   children: ReactNode;
+  // When this value changes (e.g. route pathname), a previously-captured error
+  // is cleared so the user can navigate away without a full page reload.
+  resetKey?: string;
 };
 
 type ErrorBoundaryState = {
@@ -19,8 +23,20 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     return { hasError: true };
   }
 
+  componentDidUpdate(prevProps: ErrorBoundaryProps): void {
+    // Reset the error state when the resetKey changes (route navigation).
+    if (this.state.hasError && prevProps.resetKey !== this.props.resetKey) {
+      this.setState({ hasError: false });
+    }
+  }
+
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     console.error("ErrorBoundary caught an error:", error, errorInfo);
+    track("error_displayed", {
+      error_type: error.name,
+      message: error.message,
+      page: window.location.pathname,
+    });
   }
 
   render() {

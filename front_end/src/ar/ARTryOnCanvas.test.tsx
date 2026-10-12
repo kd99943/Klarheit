@@ -3,52 +3,118 @@ import { describe, expect, test, vi } from "vitest";
 
 vi.mock("three", () => {
   class MockGeometry {
-    translate(x: number, y: number, z: number) { return this; }
-    rotateX(a: number) { return this; }
-    rotateY(a: number) { return this; }
-    rotateZ(a: number) { return this; }
+    translate() {
+      return this;
+    }
+    rotateX() {
+      return this;
+    }
+    rotateY() {
+      return this;
+    }
+    rotateZ() {
+      return this;
+    }
+    clone() {
+      return new MockGeometry();
+    }
     dispose() {}
   }
 
   class Vector3 {
-    x = 0; y = 0; z = 0;
+    x = 0;
+    y = 0;
+    z = 0;
     constructor(x = 0, y = 0, z = 0) {
-      this.x = x; this.y = y; this.z = z;
+      this.x = x;
+      this.y = y;
+      this.z = z;
     }
     set(x: number, y: number, z: number) {
-      this.x = x; this.y = y; this.z = z;
+      this.x = x;
+      this.y = y;
+      this.z = z;
       return this;
     }
     setScalar(s: number) {
-      this.x = s; this.y = s; this.z = s;
+      this.x = s;
+      this.y = s;
+      this.z = s;
       return this;
     }
-    lerp(v: any, alpha: number) {
+    lerp(v: { x: number; y: number; z: number }, alpha: number) {
       this.x += (v.x - this.x) * alpha;
       this.y += (v.y - this.y) * alpha;
       this.z += (v.z - this.z) * alpha;
       return this;
     }
+    clone() {
+      return new Vector3(this.x, this.y, this.z);
+    }
+    sub() {
+      return this;
+    }
+    normalize() {
+      return this;
+    }
+    cross() {
+      return this;
+    }
+    distanceTo() {
+      return 0.5;
+    }
+    applyQuaternion() {
+      return this;
+    }
   }
 
   class Quaternion {
-    x = 0; y = 0; z = 0; w = 1;
-    set(x: number, y: number, z: number, w: number) {
-      this.x = x; this.y = y; this.z = z; this.w = w;
+    x = 0;
+    y = 0;
+    z = 0;
+    w = 1;
+    set() {
       return this;
     }
-    setFromEuler(e: any) { return this; }
-    slerp(q: any, alpha: number) { return this; }
+    setFromEuler() {
+      return this;
+    }
+    setFromRotationMatrix() {
+      return this;
+    }
+    copy() {
+      return this;
+    }
+    multiply() {
+      return this;
+    }
+    slerp() {
+      return this;
+    }
   }
 
   class Euler {
-    x = 0; y = 0; z = 0; order = "XYZ";
+    x = 0;
+    y = 0;
+    z = 0;
+    order = "XYZ";
     constructor(x = 0, y = 0, z = 0, order = "XYZ") {
-      this.x = x; this.y = y; this.z = z; this.order = order;
+      this.x = x;
+      this.y = y;
+      this.z = z;
+      this.order = order;
     }
     set(x: number, y: number, z: number, order?: string) {
-      this.x = x; this.y = y; this.z = z;
+      this.x = x;
+      this.y = y;
+      this.z = z;
       if (order) this.order = order;
+      return this;
+    }
+  }
+
+  class Matrix4 {
+    makeBasis() {
       return this;
     }
   }
@@ -58,7 +124,10 @@ vi.mock("three", () => {
     setSize: vi.fn(),
     render: vi.fn(),
     dispose: vi.fn(),
-    shadowMap: { enabled: false, type: 0 }
+    setClearColor: vi.fn(),
+    shadowMap: { enabled: false, type: 0 },
+    toneMapping: 0,
+    toneMappingExposure: 1,
   };
 
   return {
@@ -71,6 +140,7 @@ vi.mock("three", () => {
     Scene: class Scene {
       add = vi.fn();
       remove = vi.fn();
+      environment = null;
     },
     PerspectiveCamera: class PerspectiveCamera {
       position = { z: 0 };
@@ -83,29 +153,46 @@ vi.mock("three", () => {
       shadow = {
         mapSize: { width: 0, height: 0 },
         bias: 0,
+        radius: 0,
         camera: {
-          left: 0, right: 0, top: 0, bottom: 0, near: 0, far: 0,
-          updateProjectionMatrix: vi.fn()
-        }
+          left: 0,
+          right: 0,
+          top: 0,
+          bottom: 0,
+          near: 0,
+          far: 0,
+          updateProjectionMatrix: vi.fn(),
+        },
       };
     },
     Group: class Group {
       add = vi.fn();
+      remove = vi.fn();
       position = new Vector3();
       quaternion = new Quaternion();
       rotation = new Euler();
       scale = new Vector3(1, 1, 1);
-      traverse = vi.fn((cb) => {
-        // Can be called to simulate traversal
-      });
+      traverse = vi.fn();
+      visible = true;
     },
     Mesh: class Mesh {
       position = new Vector3();
       quaternion = new Quaternion();
       rotation = new Euler();
       scale = new Vector3(1, 1, 1);
-      geometry = { dispose: vi.fn() };
-      material = { dispose: vi.fn() };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      geometry: any = { dispose: vi.fn() };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      material: any = { dispose: vi.fn() };
+      castShadow = false;
+      receiveShadow = false;
+      constructor(geometry?: unknown, material?: unknown) {
+        if (geometry) this.geometry = geometry;
+        if (material) this.material = material;
+      }
+      add() {
+        return this;
+      }
     },
     TorusGeometry: class TorusGeometry extends MockGeometry {},
     CircleGeometry: class CircleGeometry extends MockGeometry {},
@@ -114,38 +201,59 @@ vi.mock("three", () => {
     CylinderGeometry: class CylinderGeometry extends MockGeometry {},
     ExtrudeGeometry: class ExtrudeGeometry extends MockGeometry {},
     ShapeGeometry: class ShapeGeometry extends MockGeometry {},
+    CapsuleGeometry: class CapsuleGeometry extends MockGeometry {},
+    TubeGeometry: class TubeGeometry extends MockGeometry {},
+    CatmullRomCurve3: class CatmullRomCurve3 {
+      constructor() {}
+    },
     Shape: class Shape {
       moveTo = vi.fn();
+      lineTo = vi.fn();
+      quadraticCurveTo = vi.fn();
       bezierCurveTo = vi.fn();
       absellipse = vi.fn();
-      holes: any[] = [];
+      closePath = vi.fn();
+      holes: unknown[] = [];
     },
     Path: class Path {
       moveTo = vi.fn();
+      lineTo = vi.fn();
+      quadraticCurveTo = vi.fn();
       bezierCurveTo = vi.fn();
       absellipse = vi.fn();
+      closePath = vi.fn();
     },
     MeshStandardMaterial: class MeshStandardMaterial {},
-    MeshPhysicalMaterial: class MeshPhysicalMaterial {},
+    MeshPhysicalMaterial: class MeshPhysicalMaterial {
+      color = { offsetHSL: () => this };
+      constructor(public params?: unknown) {}
+    },
     MeshBasicMaterial: class MeshBasicMaterial {},
     ShadowMaterial: class ShadowMaterial {},
     Vector3,
     Quaternion,
     Euler,
+    Matrix4,
     Color: class Color {
-      constructor(val?: any) {}
+      constructor(_val?: unknown) {}
+      offsetHSL() {
+        return this;
+      }
     },
     PCFSoftShadowMap: 1,
     ACESFilmicToneMapping: 1,
     EquirectangularReflectionMapping: 2,
+    SRGBColorSpace: "srgb",
     PMREMGenerator: class PMREMGenerator {
       compileEquirectangularShader = vi.fn();
       fromEquirectangular = vi.fn().mockReturnValue({ texture: {} });
       dispose = vi.fn();
     },
     CanvasTexture: class CanvasTexture {
+      mapping = 0;
+      colorSpace = "";
       dispose = vi.fn();
-    }
+    },
   };
 });
 
@@ -153,7 +261,7 @@ vi.mock("three/examples/jsm/loaders/GLTFLoader.js", () => {
   return {
     GLTFLoader: class GLTFLoader {
       load = vi.fn();
-    }
+    },
   };
 });
 

@@ -2,6 +2,7 @@ import { type FormEvent, useEffect, useState } from "react";
 import { ArrowLeft, CheckCircle2, Loader2, Phone, ShieldCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { sendSmsCode, resetPasswordViaSms } from "../../services/api";
+import { track } from "../../services/analytics";
 
 type Step = "phone" | "code" | "password" | "success";
 
@@ -36,6 +37,7 @@ export function ForgotPasswordFlow({ onBack }: Props) {
     setIsLoading(true);
     try {
       await sendSmsCode(phone);
+      track("auth_password_reset_initiated", {});
       setCooldown(60);
       setStep("code");
     } catch (err) {
@@ -67,8 +69,11 @@ export function ForgotPasswordFlow({ onBack }: Props) {
     try {
       await resetPasswordViaSms(phone, code, newPassword);
       setStep("success");
+      track("auth_password_reset_succeeded", {});
     } catch (err) {
-      setError(err instanceof Error ? err.message : "重置失败");
+      const reason = err instanceof Error ? err.message : "重置失败";
+      setError(reason);
+      track("auth_password_reset_failed", { reason });
     } finally {
       setIsLoading(false);
     }

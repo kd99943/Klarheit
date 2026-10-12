@@ -1,10 +1,11 @@
 // front_end/src/pages/ConfigLab.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronRight, Sparkles } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { AR_FRAME_CATALOG, getFrameConfigForProduct } from "../ar/frameCatalog";
 import { useAuth } from "../auth/AuthProvider";
+import { useCart } from "../hooks/useCart";
 import { useProducts } from "../hooks/useProducts";
 import { useLensOptions } from "../hooks/useLensOptions";
 import { Button } from "../components/ui/Button";
@@ -12,6 +13,7 @@ import { FormField } from "../components/ui/FormField";
 import { cn, formatPrice } from "../lib/utils";
 import { PageIntro } from "../components/ui/PageIntro";
 import { SectionCard } from "../components/ui/SectionCard";
+import { track } from "../services/analytics";
 
 type Step = 1 | 2 | 3;
 
@@ -67,11 +69,20 @@ export function ConfigLab() {
   const { t, i18n } = useTranslation("config-lab");
   const { t: tAr } = useTranslation("ar-studio");
   const { products } = useProducts();
+  const { addItem: addCartItem } = useCart();
   const { options: lensOptions, isLoading: isLoadingLens } = useLensOptions();
 
   const [activeStep, setActiveStep] = useState<Step>(1);
-  const [prescription, setPrescription] = useState<PrescriptionForm>({
-    sphOd: "", sphOs: "", cylOd: "", cylOs: "", axisOd: "", axisOs: "", pd: "",
+  const [prescription, setPrescription] = useState<PrescriptionForm>(() => {
+    let initialPd = "";
+    try {
+      initialPd = sessionStorage.getItem("klarheit_tryon_pd") ?? "";
+    } catch {
+      initialPd = "";
+    }
+    return {
+      sphOd: "", sphOs: "", cylOd: "", cylOs: "", axisOd: "", axisOs: "", pd: initialPd,
+    };
   });
   const [errors, setErrors] = useState<PrescriptionErrors>({});
   const [selectedLensTypes, setSelectedLensTypes] = useState<string[]>([]);
@@ -83,6 +94,14 @@ export function ConfigLab() {
     try {
       return sessionStorage.getItem("savedFinishId");
     } catch (e) {
+      return null;
+    }
+  });
+
+  const [tryOnSnapshot] = useState<string | null>(() => {
+    try {
+      return sessionStorage.getItem("klarheit_tryon_snapshot");
+    } catch {
       return null;
     }
   });
@@ -112,11 +131,23 @@ export function ConfigLab() {
     { id: 3 as Step, label: t("steps.review.label"), description: t("steps.review.description") },
   ];
 
+  const stepStartedAtRef = useRef(Date.now());
+
   useEffect(() => {
     if (lensOptions.length > 0 && selectedLensTypes.length === 0) {
       setSelectedLensTypes([lensOptions[0].type]);
     }
   }, [lensOptions, selectedLensTypes.length]);
+
+  // Analytics: config lab entered
+  useEffect(() => {
+    track("config_lab_entered", {});
+  }, []);
+
+  // Reset step timer whenever the active step changes (covers Next + sidebar jumps)
+  useEffect(() => {
+    stepStartedAtRef.current = Date.now();
+  }, [activeStep]);
 
   function handlePrescriptionChange(field: keyof PrescriptionForm, value: string) {
     setPrescription((prev) => ({ ...prev, [field]: value }));
@@ -140,10 +171,21 @@ export function ConfigLab() {
       const validationErrors = validatePrescription(prescription);
       if (Object.keys(validationErrors).length > 0) {
         setErrors(validationErrors);
+        for (const field of Object.keys(validationErrors) as (keyof PrescriptionForm)[]) {
+          track("config_prescription_validation_failed", {
+            field: PRESCRIPTION_RANGES[field].label,
+            value: prescription[field],
+          });
+        }
         return;
       }
     }
     if (activeStep < 3) {
+      const completedStep = activeStep === 1 ? "prescription" : "lens";
+      track("config_step_completed", {
+        step: completedStep,
+        duration_sec: Math.round((Date.now() - stepStartedAtRef.current) / 1000),
+      });
       setActiveStep((s) => (s + 1) as Step);
     }
   }
@@ -153,8 +195,19 @@ export function ConfigLab() {
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       setActiveStep(1);
+      for (const field of Object.keys(validationErrors) as (keyof PrescriptionForm)[]) {
+        track("config_prescription_validation_failed", {
+          field: PRESCRIPTION_RANGES[field].label,
+          value: prescription[field],
+        });
+      }
       return;
     }
+    track("config_step_completed", {
+      step: "review",
+      duration_sec: Math.round((Date.now() - stepStartedAtRef.current) / 1000),
+    });
+    track("config_proceed_to_checkout_clicked", {});
     const checkoutState = {
       product: selectedProduct,
       prescription: {
@@ -177,6 +230,36 @@ export function ConfigLab() {
     navigate("/checkout", {
       state: checkoutState,
     });
+  }
+
+  function handleAddToCart() {
+    if (!selectedProduct) return;
+    const validationErrors = validatePrescription(prescription);
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      setActiveStep(1);
+      return;
+    }
+    addCartItem({
+      productId: selectedProduct.id,
+      productName: selectedProduct.name,
+      productImageUrl: selectedProduct.imageUrl,
+      basePrice: selectedProduct.basePrice,
+      finishId: finishId || undefined,
+      prescription: {
+        sphOd: Number(prescription.sphOd),
+        sphOs: Number(prescription.sphOs),
+        cylOd: Number(prescription.cylOd),
+        cylOs: Number(prescription.cylOs),
+        axisOd: Number(prescription.axisOd),
+        axisOs: Number(prescription.axisOs),
+        pd: Number(prescription.pd),
+      },
+      lensOptionTypes: selectedLensTypes,
+      lensPrice: lensTotal,
+      tryOnSnapshot: tryOnSnapshot,
+    });
+    track("config_added_to_cart", { product_name: selectedProduct.name });
   }
 
   const lensOptionsByCategory = {
@@ -289,7 +372,12 @@ export function ConfigLab() {
                         {lensOptionsByCategory.LENS.map((option) => (
                           <div
                             key={option.id}
-                            onClick={() => toggleLensType(option.type)}
+                            onClick={() => {
+                              if (!selectedLensTypes.includes(option.type)) {
+                                track("config_lens_selected", { lens_option_id: String(option.id) });
+                              }
+                              toggleLensType(option.type);
+                            }}
                             className={cn(
                               "flex items-center justify-between p-4 border rounded-lg cursor-pointer transition-colors mb-2",
                               selectedLensTypes.includes(option.type)
@@ -318,7 +406,12 @@ export function ConfigLab() {
                         {lensOptionsByCategory.COATING.map((option) => (
                           <div
                             key={option.id}
-                            onClick={() => toggleLensType(option.type)}
+                            onClick={() => {
+                              if (!selectedLensTypes.includes(option.type)) {
+                                track("config_lens_selected", { lens_option_id: String(option.id) });
+                              }
+                              toggleLensType(option.type);
+                            }}
                             className={cn(
                               "flex items-center justify-between p-4 border rounded-lg cursor-pointer transition-colors mb-2",
                               selectedLensTypes.includes(option.type)
@@ -381,6 +474,18 @@ export function ConfigLab() {
           </div>
 
           <div className="lg:col-span-4 flex flex-col gap-6">
+            {tryOnSnapshot && (
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-slate-400 mb-3">
+                  {tAr("capture.title", { defaultValue: "Try-On Preview" })}
+                </p>
+                <img
+                  src={tryOnSnapshot}
+                  alt={tAr("capture.title", { defaultValue: "Try-on snapshot" })}
+                  className="w-full rounded-xl border border-slate-100"
+                />
+              </div>
+            )}
             <div className="rounded-2xl border border-brand-primary/10 bg-brand-primary text-white p-6 sm:p-8 h-full flex flex-col justify-between shadow-xl relative overflow-hidden">
               <div className="absolute -top-24 -right-24 w-64 h-64 bg-white/5 rounded-full blur-3xl"></div>
               <div className="relative z-10">
@@ -433,14 +538,23 @@ export function ConfigLab() {
                       <ChevronRight className="w-4 h-4" />
                     </button>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={handleInitializeOrder}
-                      className="w-full bg-white text-brand-primary py-4 text-[10px] font-bold uppercase tracking-[0.2em] hover:bg-slate-100 transition-colors rounded-sm flex items-center justify-center gap-2"
-                    >
-                      {t("initializeOrder")}
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleInitializeOrder}
+                        className="w-full bg-white text-brand-primary py-4 text-[10px] font-bold uppercase tracking-[0.2em] hover:bg-slate-100 transition-colors rounded-sm flex items-center justify-center gap-2"
+                      >
+                        {t("initializeOrder")}
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleAddToCart}
+                        className="w-full border border-white/40 text-white py-3 text-[10px] font-bold uppercase tracking-[0.2em] hover:bg-white/10 transition-colors rounded-sm"
+                      >
+                        {t("addToCart", "加入购物车")}
+                      </button>
+                    </>
                   )}
                 </div>
               </div>

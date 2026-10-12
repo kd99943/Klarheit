@@ -70,6 +70,18 @@ vi.mock("../ar/ARTryOnCanvas", () => ({
   ARTryOnCanvas: () => <div data-testid="ar-try-on-canvas" />,
 }));
 
+vi.mock("../ar/FrameShowcase", () => ({
+  FrameShowcase: () => <div data-testid="frame-showcase" />,
+}));
+
+vi.mock("../ar/FrameCompare", () => ({
+  FrameCompare: () => <div data-testid="frame-compare" />,
+}));
+
+vi.mock("../components/ar/FaceCalibrationGuide", () => ({
+  FaceCalibrationGuide: () => <div data-testid="face-calibration-guide" />,
+}));
+
 vi.mock("../services/api", () => ({
   fetchArConfigs: vi.fn().mockResolvedValue([]),
   fetchProducts: vi.fn().mockResolvedValue([
@@ -88,12 +100,15 @@ vi.mock("../services/api", () => ({
 }));
 
 import { ARVirtualStudio } from "./ARVirtualStudio";
+import { CartProvider } from "../hooks/useCart";
 
 describe("ARVirtualStudio", () => {
   test("shows unsupported fallback instead of claiming live tracking", async () => {
     render(
       <BrowserRouter>
-        <ARVirtualStudio />
+        <CartProvider>
+          <ARVirtualStudio />
+        </CartProvider>
       </BrowserRouter>
     );
 

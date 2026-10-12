@@ -74,6 +74,10 @@ public class Order {
     private LocalDateTime paidAt;
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+    @Column(name = "carrier", length = 100)
+    private String carrier;
+    @Column(name = "tracking_number", length = 100)
+    private String trackingNumber;
 
     public static Builder builder() { return new Builder(); }
     public Long getId() { return id; }
@@ -97,6 +101,8 @@ public class Order {
     public String getAppliedCouponCode() { return appliedCouponCode; }
     public String getFinishId() { return finishId; }
     public LocalDateTime getPaidAt() { return paidAt; }
+    public String getCarrier() { return carrier; }
+    public String getTrackingNumber() { return trackingNumber; }
 
     public void setId(Long id) { this.id = id; }
     public void setOrderNumber(String orderNumber) { this.orderNumber = orderNumber; }
@@ -118,6 +124,8 @@ public class Order {
     public void setPaidAt(LocalDateTime paidAt) { this.paidAt = paidAt; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public void setCarrier(String carrier) { this.carrier = carrier; }
+    public void setTrackingNumber(String trackingNumber) { this.trackingNumber = trackingNumber; }
 
     @PrePersist
     protected void onCreate() {
@@ -147,6 +155,8 @@ public class Order {
         public Builder finishId(String finishId) { instance.finishId = finishId; return this; }
         public Builder paidAt(LocalDateTime paidAt) { instance.paidAt = paidAt; return this; }
         public Builder createdAt(LocalDateTime createdAt) { instance.createdAt = createdAt; return this; }
+        public Builder carrier(String carrier) { instance.carrier = carrier; return this; }
+        public Builder trackingNumber(String trackingNumber) { instance.trackingNumber = trackingNumber; return this; }
         public Order build() { return instance; }
     }
 }

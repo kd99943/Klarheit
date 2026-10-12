@@ -72,4 +72,17 @@ public class CouponService {
             throw new IllegalStateException("Coupon redemption failed — it may have been exhausted or disabled.");
         }
     }
+
+    @Transactional
+    public void decrementCouponUsage(String code) {
+        if (code == null || code.isBlank()) {
+            return;
+        }
+
+        Coupon coupon = couponRepository.findByCodeIgnoreCase(code.trim())
+                .orElse(null);
+        if (coupon != null) {
+            couponRepository.decrementUsedCount(coupon.getId());
+        }
+    }
 }

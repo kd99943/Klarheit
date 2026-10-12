@@ -12,7 +12,10 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @Configuration
 public class CorsConfig {
 
-    @Value("${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}")
+    // Use wildcard patterns so that any localhost port (e.g. when vite picks
+    // 3001, 3002... because 3000 is still occupied by a stale process) is
+    // accepted in dev. In production, set CORS_ALLOWED_ORIGINS explicitly.
+    @Value("${CORS_ALLOWED_ORIGINS:http://localhost:*,http://127.0.0.1:*}")
     private String allowedOrigins;
 
     @Bean

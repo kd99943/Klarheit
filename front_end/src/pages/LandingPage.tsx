@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { ArrowUpRight, MoveRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { track } from "../services/analytics";
 export function LandingPage() {
   const { t } = useTranslation("landing");
   return (
@@ -28,6 +29,7 @@ export function LandingPage() {
           <div className="flex flex-col sm:flex-row gap-4">
             <Link
               to="/virtual-studio"
+              onClick={() => track("landing_hero_cta_clicked", { cta_name: "virtual_try_on" })}
               className="text-[10px] sm:text-xs border border-brand-primary px-8 py-4 uppercase tracking-widest text-brand-primary hover:bg-brand-primary hover:text-white transition-all duration-500 bg-white/50 backdrop-blur-md font-medium flex items-center justify-center gap-3 group"
             >
               {t("hero.virtualTryOn")}
@@ -35,6 +37,7 @@ export function LandingPage() {
             </Link>
             <Link
               to="/collections"
+              onClick={() => track("landing_hero_cta_clicked", { cta_name: "browse_collection" })}
               className="text-[10px] sm:text-xs border border-brand-primary px-8 py-4 uppercase tracking-widest text-brand-primary hover:bg-brand-primary hover:text-white transition-all duration-500 bg-white/40 backdrop-blur-md font-medium flex items-center justify-center"
             >
               {t("hero.browseCollection")}
@@ -51,6 +54,48 @@ export function LandingPage() {
                 <p className="mt-2 text-sm font-medium text-brand-primary">{value}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Brand Story */}
+      <section className="py-24 sm:py-32 bg-[#0A1121] text-white relative overflow-hidden border-t border-white/5">
+        <div className="absolute inset-0 z-0 opacity-30">
+          <div className="absolute inset-0 bg-gradient-to-br from-brand-primary/40 via-transparent to-brand-cyan/5"></div>
+        </div>
+        <div className="max-w-[1440px] mx-auto px-8 lg:px-16 relative z-10">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-24 items-center">
+            <div className="lg:col-span-5 flex flex-col gap-8">
+              <div className="pb-8 border-b border-white/10">
+                <p className="text-[10px] sm:text-xs text-brand-cyan uppercase tracking-[0.2em] mb-6 font-semibold border-b border-brand-cyan/30 pb-2 inline-block">
+                  {t("brandStory.eyebrow")}
+                </p>
+                <h2 className="text-3xl sm:text-4xl md:text-5xl font-display font-light text-white mb-8 tracking-tight leading-[1.15]">
+                  {t("brandStory.title")}
+                </h2>
+                <p className="text-slate-300 font-light leading-relaxed text-base sm:text-lg">
+                  {t("brandStory.description")}
+                </p>
+              </div>
+            </div>
+            <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-3 gap-5">
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="border border-white/10 bg-white/5 p-6 xl:p-8 backdrop-blur-xl rounded-lg flex flex-col gap-4 hover:bg-white/10 transition-colors duration-500"
+                >
+                  <div className="w-8 h-8 rounded border border-white/20 flex items-center justify-center shrink-0">
+                    <span className="text-brand-cyan text-xs font-mono font-bold">0{i}</span>
+                  </div>
+                  <h3 className="text-xs uppercase text-white tracking-widest font-bold">
+                    {t(`brandStory.value${i}.label`)}
+                  </h3>
+                  <p className="text-slate-300 text-sm font-light leading-relaxed">
+                    {t(`brandStory.value${i}.description`)}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -103,6 +148,7 @@ export function LandingPage() {
                 className="w-full h-full object-cover mix-blend-multiply opacity-80"
                 alt={t("alt.wireframeGlasses")}
                 src="/images/aero_x1.png"
+                loading="lazy"
               />
               {/* Annotations */}
               <div className="absolute top-[38%] left-[32%] sm:left-[34%] flex items-center gap-2">
@@ -132,6 +178,7 @@ export function LandingPage() {
             className="w-full h-full object-cover z-0 opacity-40 mix-blend-screen"
             alt={t("alt.glassPrisms")}
             src="/images/orbit_t4.png"
+            loading="lazy"
           />
         </div>
         <div className="max-w-[1440px] mx-auto px-8 lg:px-16 relative z-20">
@@ -195,6 +242,81 @@ export function LandingPage() {
         </div>
       </section>
 
+      {/* Trust Badges */}
+      <section className="py-24 sm:py-32 bg-white relative border-t border-slate-200/50">
+        <div className="max-w-[1440px] mx-auto px-8 lg:px-16">
+          <div className="text-center mb-16 sm:mb-20 max-w-2xl mx-auto">
+            <p className="text-[10px] sm:text-xs text-brand-cyan uppercase tracking-[0.2em] mb-4 font-semibold border-b border-brand-cyan/30 pb-2 inline-block">
+              {t("trust.eyebrow")}
+            </p>
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-display font-light text-brand-primary tracking-tight">
+              {t("trust.title")}
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+            {[1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                className="border border-slate-200/70 bg-surface-offwhite p-8 rounded-lg flex flex-col gap-4 hover:border-brand-primary/40 hover:bg-white transition-all duration-500"
+              >
+                <div className="w-10 h-10 rounded-full border border-brand-primary/30 flex items-center justify-center shrink-0">
+                  <span className="text-brand-primary text-xs font-mono font-bold">0{i}</span>
+                </div>
+                <h3 className="text-xs uppercase text-brand-primary tracking-widest font-bold">
+                  {t(`trust.item${i}.title`)}
+                </h3>
+                <p className="text-slate-500 text-sm font-light leading-relaxed">
+                  {t(`trust.item${i}.description`)}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section className="py-24 sm:py-32 bg-surface-offwhite relative border-t border-slate-200/50">
+        <div className="max-w-[1440px] mx-auto px-8 lg:px-16">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-24">
+            <div className="lg:col-span-4">
+              <div className="lg:sticky lg:top-28">
+                <p className="text-[10px] sm:text-xs text-brand-cyan uppercase tracking-[0.2em] mb-6 font-semibold border-b border-brand-cyan/30 pb-2 inline-block">
+                  {t("faq.eyebrow")}
+                </p>
+                <h2 className="text-3xl sm:text-4xl font-display font-light text-brand-primary mb-6 tracking-tight leading-[1.15]">
+                  {t("faq.title")}
+                </h2>
+                <p className="text-slate-500 text-sm font-light leading-relaxed">
+                  {t("cta.description")}
+                </p>
+              </div>
+            </div>
+            <div className="lg:col-span-8 flex flex-col">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div
+                  key={i}
+                  className="py-8 border-b border-slate-200/60 first:pt-0 last:border-b-0 last:pb-0"
+                >
+                  <div className="flex items-start gap-4 mb-4">
+                    <div className="w-8 h-8 rounded border border-slate-200 flex items-center justify-center shrink-0 mt-1 bg-white">
+                      <span className="text-brand-primary text-xs font-mono font-bold">
+                        {String(i).padStart(2, "0")}
+                      </span>
+                    </div>
+                    <h3 className="text-base sm:text-lg font-display text-brand-primary font-medium leading-snug pt-1">
+                      {t(`faq.q${i}`)}
+                    </h3>
+                  </div>
+                  <p className="text-slate-600 text-sm font-light leading-relaxed pl-12">
+                    {t(`faq.a${i}`)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Final CTA */}
       <section className="py-24 sm:py-32 bg-[#050B16] text-white relative">
         <div className="max-w-4xl mx-auto px-8 text-center flex flex-col items-center">
@@ -206,6 +328,7 @@ export function LandingPage() {
           </p>
           <Link
             to="/virtual-studio"
+            onClick={() => track("landing_cta_final_clicked", { cta_name: "start_studio" })}
             className="text-[10px] sm:text-xs border border-white/30 px-10 py-5 uppercase tracking-widest text-white hover:bg-white hover:text-brand-primary transition-all duration-500 font-semibold flex items-center gap-4 group"
           >
             {t("cta.startStudio")}
@@ -213,7 +336,11 @@ export function LandingPage() {
               <span className="block w-1.5 h-1.5 bg-current rounded-full"></span>
             </div>
           </Link>
-          <Link to="/collections" className="mt-5 text-sm text-slate-400 hover:text-white transition-colors inline-flex items-center gap-2">
+          <Link
+            to="/collections"
+            onClick={() => track("landing_cta_final_clicked", { cta_name: "explore_catalog" })}
+            className="mt-5 text-sm text-slate-400 hover:text-white transition-colors inline-flex items-center gap-2"
+          >
             {t("cta.exploreCatalog")} <ArrowUpRight className="w-4 h-4" />
           </Link>
         </div>

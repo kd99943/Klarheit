@@ -36,14 +36,17 @@ public class VerificationCodeStore {
     }
 
     public void incrementAttempts(String phone) {
-        CodeEntry entry = store.get(phone);
-        if (entry != null) {
-            store.put(phone, new CodeEntry(entry.code(), entry.createdAt(), entry.attempts() + 1));
-        }
+        store.computeIfPresent(phone, (key, entry) -> 
+            new CodeEntry(entry.code(), entry.createdAt(), entry.attempts() + 1)
+        );
     }
 
     public void remove(String phone) {
         store.remove(phone);
+    }
+
+    public boolean remove(String phone, CodeEntry entry) {
+        return store.remove(phone, entry);
     }
 
     public boolean isOnCooldown(String phone) {

@@ -4,6 +4,7 @@ import { cn } from "../../lib/utils";
 import { useAuth } from "../../auth/AuthProvider";
 import { useTranslation } from "react-i18next";
 import { ForgotPasswordFlow } from "./ForgotPasswordFlow";
+import { track } from "../../services/analytics";
 
 type SignInForm = {
   email: string;
@@ -51,6 +52,15 @@ export function AuthDrawer() {
     setSignInForm({ ...EMPTY_SIGN_IN_FORM });
     setRegisterForm({ ...EMPTY_REGISTER_FORM });
     setShowForgotPassword(false);
+  }, [isAuthModalOpen]);
+
+  useEffect(() => {
+    if (isAuthModalOpen) {
+      track("auth_drawer_opened", {
+        mode: authMode === "signin" ? "signin" : "signup",
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthModalOpen]);
 
   async function handleSignInSubmit(event: FormEvent<HTMLFormElement>) {

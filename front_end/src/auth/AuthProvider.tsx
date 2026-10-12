@@ -14,11 +14,15 @@ import {
   logoutUser,
   registerUser,
   fetchCurrentUser,
+  setStoredAuthToken,
+  logoutStoredAuthToken,
+  getStoredAuthToken,
   type AuthResponse,
   type LoginRequest,
   type RegisterRequest,
   type UserProfile,
 } from "../services/api";
+import { setUserContext, track } from "../services/analytics";
 
 type AuthMode = "signin" | "register";
 
@@ -58,6 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [user, setUser] = useState<UserProfile | null>(null);
+  const [token, setToken] = useState<string | null>(getStoredAuthToken());
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>("signin");
@@ -65,8 +70,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [authMessage, setAuthMessage] = useState<string | null>(null);
   const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<PendingNavigation | null>(null);
-
-  const token = user ? "cookie-authenticated" : null;
 
   useEffect(() => {
     let isCancelled = false;
@@ -80,6 +83,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch {
         if (!isCancelled) {
           setUser(null);
+          // If /auth/me failed the token is invalid/expired — clear local state.
+          if (getStoredAuthToken()) {
+            logoutStoredAuthToken();
+          }
+          setToken(null);
         }
       } finally {
         if (!isCancelled) {
@@ -96,6 +104,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const applyAuthResponse = useCallback((response: AuthResponse) => {
+    if (response.token) {
+      setStoredAuthToken(response.token);
+      setToken(response.token);
+    }
     setUser(response.user);
     setIsAuthReady(true);
     setAuthError(null);
@@ -147,8 +159,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await loginUser(payload);
       applyAuthResponse(response);
+      setUserContext(String(response.user.id));
+      track("auth_signin_succeeded", {});
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : t("auth.unableToSignIn"));
+      const reason = error instanceof Error ? error.message : t("auth.unableToSignIn");
+      setAuthError(reason);
+      track("auth_signin_failed", { reason });
     } finally {
       setIsSubmittingAuth(false);
     }
@@ -160,8 +176,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await registerUser(payload);
       applyAuthResponse(response);
+      setUserContext(String(response.user.id));
+      track("auth_signup_succeeded", {});
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : t("auth.unableToCreateAccount"));
+      const reason = error instanceof Error ? error.message : t("auth.unableToCreateAccount");
+      setAuthError(reason);
+      track("auth_signup_failed", { reason });
     } finally {
       setIsSubmittingAuth(false);
     }
@@ -173,6 +193,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error("Logout failed on backend", error);
     }
+    logoutStoredAuthToken();
+    setToken(null);
+    setUserContext();
     setUser(null);
     setIsAuthReady(true);
     setPendingNavigation(null);

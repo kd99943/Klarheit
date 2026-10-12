@@ -1,7 +1,11 @@
 import type { ARTransform, FaceLandmark } from "./types";
 
 const LEFT_EYE_OUTER = 33;
+const LEFT_EYE_INNER = 133;
 const RIGHT_EYE_OUTER = 263;
+const RIGHT_EYE_INNER = 362;
+const LEFT_IRIS = 468;
+const RIGHT_IRIS = 473;
 const NOSE_BRIDGE = 168;
 const NOSE_TIP = 1;
 
@@ -18,13 +22,29 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
+function eyeCenter(
+  landmarks: FaceLandmark[],
+  irisIndex: number,
+  outerIndex: number,
+  innerIndex: number
+): FaceLandmark | null {
+  const iris = landmarks[irisIndex];
+  if (iris && Number.isFinite(iris.x) && Number.isFinite(iris.y)) return iris;
+  if (!hasPoint(landmarks, outerIndex)) return null;
+  const outer = landmarks[outerIndex];
+  if (!hasPoint(landmarks, innerIndex)) return outer;
+  const inner = landmarks[innerIndex];
+  return { x: (outer.x + inner.x) / 2, y: (outer.y + inner.y) / 2 };
+}
+
 export function calculateGlassesTransform(landmarks: FaceLandmark[]): ARTransform | null {
-  if (![LEFT_EYE_OUTER, RIGHT_EYE_OUTER, NOSE_BRIDGE, NOSE_TIP].every((index) => hasPoint(landmarks, index))) {
+  if (![NOSE_BRIDGE, NOSE_TIP].every((index) => hasPoint(landmarks, index))) {
     return null;
   }
 
-  const leftEye = landmarks[LEFT_EYE_OUTER];
-  const rightEye = landmarks[RIGHT_EYE_OUTER];
+  const leftEye = eyeCenter(landmarks, LEFT_IRIS, LEFT_EYE_OUTER, LEFT_EYE_INNER);
+  const rightEye = eyeCenter(landmarks, RIGHT_IRIS, RIGHT_EYE_OUTER, RIGHT_EYE_INNER);
+  if (!leftEye || !rightEye) return null;
   const noseBridge = landmarks[NOSE_BRIDGE];
   const noseTip = landmarks[NOSE_TIP];
   const eyeDistance = distance(leftEye, rightEye);

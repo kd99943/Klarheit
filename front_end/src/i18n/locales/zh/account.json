@@ -48,5 +48,18 @@
   "compliance.sessionActive": "已验证会话处于活跃状态并与您的已验证邮箱身份绑定。",
   "compliance.dataSecure": "处方和订单数据保存在安全的 Klarheit 账户工作区内。",
   "compliance.sessionBullet": "已验证会话处于活跃状态并与您的已验证邮箱身份绑定。",
-  "compliance.dataBullet": "处方和订单数据保存在安全的 Klarheit 账户工作区内。"
+  "compliance.dataBullet": "处方和订单数据保存在安全的 Klarheit 账户工作区内。",
+  "appointments.eyebrow": "日程",
+  "appointments.title": "预约与时间线",
+  "appointments.description": "查看您的预约日程与账户订单活动时间线。",
+  "appointments.booking.eyebrow": "预约",
+  "appointments.booking.title": "线下验光预约",
+  "appointments.booking.description": "预约专属验光师进行线下视力检测与镜架调配服务。",
+  "appointments.booking.comingSoonTitle": "预约功能即将上线",
+  "appointments.booking.comingSoonBody": "我们正在打磨线下验光预约体验。届时您将可以在此选择门店、时间与验光师，完成一站式预约。",
+  "appointments.booking.statusBadge": "即将推出",
+  "appointments.booking.browseCollections": "先逛逛产品系列",
+  "appointments.timeline.eyebrow": "时间线",
+  "appointments.timeline.title": "账户活动时间线",
+  "appointments.timeline.description": "按时间倒序展示您的近期订单与配镜委托记录。"
 }

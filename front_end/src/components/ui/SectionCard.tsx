@@ -7,6 +7,7 @@ type SectionCardProps = {
   description?: string;
   className?: string;
   contentClassName?: string;
+  actions?: ReactNode;
   children: ReactNode;
 };
 
@@ -16,6 +17,7 @@ export function SectionCard({
   description,
   className,
   contentClassName,
+  actions,
   children,
 }: SectionCardProps) {
   return (
@@ -26,19 +28,26 @@ export function SectionCard({
       )}
     >
       {title || eyebrow || description ? (
-        <div className="border-b border-slate-100 px-5 py-5 sm:px-8">
-          {eyebrow ? (
-            <p className="mb-2 text-[10px] uppercase tracking-[0.22em] font-semibold text-slate-400">
-              {eyebrow}
-            </p>
-          ) : null}
-          {title ? (
-            <h2 className="text-lg sm:text-xl font-display font-medium tracking-tight text-brand-primary">
-              {title}
-            </h2>
-          ) : null}
-          {description ? (
-            <p className="mt-2 text-sm text-slate-500 font-light leading-6">{description}</p>
+        <div className="border-b border-slate-100 px-5 py-5 sm:px-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex-1">
+            {eyebrow ? (
+              <p className="mb-2 text-[10px] uppercase tracking-[0.22em] font-semibold text-slate-400">
+                {eyebrow}
+              </p>
+            ) : null}
+            {title ? (
+              <h2 className="text-lg sm:text-xl font-display font-medium tracking-tight text-brand-primary">
+                {title}
+              </h2>
+            ) : null}
+            {description ? (
+              <p className="mt-2 text-sm text-slate-500 font-light leading-6">{description}</p>
+            ) : null}
+          </div>
+          {actions ? (
+            <div className="flex items-center shrink-0">
+              {actions}
+            </div>
           ) : null}
         </div>
       ) : null}

@@ -71,3 +71,15 @@ Desktop.ini
 *.bak
 *.tmp
 *.backup
+
+# === Archives & Compressed Files ===
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+
+# === Test Scripts (local development only) ===
+e2e_api_test.ps1
+user_perspective_test.ps1

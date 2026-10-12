@@ -17,6 +17,8 @@
   "nav.menu": "菜单",
   "nav.signInMessage": "登录或创建账户以保存您的光学档案。",
   "nav.signedInReady": "已登录，随时可以管理订单和处方",
+  "nav.adminDashboard": "管理后台 (模拟)",
+  "nav.adminShort": "管理",
   "footer.copyright": "© 2024 Klarheit. 日内瓦，瑞士。",
   "footer.compliance": "合规标准：ISO 12870",
   "footer.status": "状态：已校准",
@@ -52,5 +54,14 @@
   "auth.backToSignIn": "返回登录",
   "auth.passwordMismatch": "两次输入的密码不一致",
   "auth.phoneRequired": "请输入手机号",
-  "auth.codeRequired": "请输入验证码"
+  "auth.codeRequired": "请输入验证码",
+  "auth.phoneNumber": "手机号",
+  "auth.sendCode": "发送验证码",
+  "auth.verificationCode": "验证码",
+  "auth.codeSentTo": "验证码已发送至",
+  "auth.resendCode": "重新发送 ({{seconds}}s)",
+  "auth.verifyCode": "验证",
+  "protected.accessDenied": "访问拒绝",
+  "protected.adminRequired": "需要管理员权限",
+  "protected.adminRequiredDesc": "此区域为商家运营后台，您的账户没有足够的权限访问此资源。如有疑问请联系系统管理员。"
 }

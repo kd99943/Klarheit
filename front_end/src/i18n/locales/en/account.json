@@ -48,5 +48,18 @@
   "compliance.sessionActive": "Authenticated session is active and tied to your verified email identity.",
   "compliance.dataSecure": "Prescription and order data stay within the secure Klarheit account workspace.",
   "compliance.sessionBullet": "Authenticated session is active and tied to your verified email identity.",
-  "compliance.dataBullet": "Prescription and order data stay within the secure Klarheit account workspace."
+  "compliance.dataBullet": "Prescription and order data stay within the secure Klarheit account workspace.",
+  "appointments.eyebrow": "Schedule",
+  "appointments.title": "Appointments & Timeline",
+  "appointments.description": "Review your booking schedule and account order activity timeline.",
+  "appointments.booking.eyebrow": "Booking",
+  "appointments.booking.title": "In-Store Optometry Appointment",
+  "appointments.booking.description": "Book a dedicated optometrist for in-store vision testing and frame fitting.",
+  "appointments.booking.comingSoonTitle": "Appointment booking is coming soon",
+  "appointments.booking.comingSoonBody": "We are refining the in-store optometry booking experience. Soon you will be able to pick a store, time slot, and optometrist here to complete a one-stop appointment.",
+  "appointments.booking.statusBadge": "Coming Soon",
+  "appointments.booking.browseCollections": "Browse Collections First",
+  "appointments.timeline.eyebrow": "Timeline",
+  "appointments.timeline.title": "Account Activity Timeline",
+  "appointments.timeline.description": "Recent orders and optical commissions, shown in reverse chronological order."
 }

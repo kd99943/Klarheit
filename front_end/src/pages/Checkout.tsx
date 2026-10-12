@@ -5,10 +5,11 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { AR_FRAME_CATALOG } from "../ar/frameCatalog";
 import { useAuth } from "../auth/AuthProvider";
 import { useProducts } from "../hooks/useProducts";
-import { checkoutOrder, isApiErrorWithStatus, type Product, validateCouponApi, getOrderStatus, triggerMockPayment, type OrderResponse, getApiBaseUrl } from "../services/api";
+import { checkoutOrder, isApiErrorWithStatus, type Product, validateCouponApi, getOrderStatus, triggerMockPayment, type OrderResponse, getApiBaseUrl, fetchAddresses, type AddressResponse } from "../services/api";
 import { Button } from "../components/ui/Button";
 import { PageIntro } from "../components/ui/PageIntro";
 import { SectionCard } from "../components/ui/SectionCard";
+import { track } from "../services/analytics";
 import { formatPrice } from "../lib/utils";
 
 type CheckoutLocationState = {
@@ -39,7 +40,7 @@ export function Checkout() {
   const location = useLocation();
   const navigate = useNavigate();
   const routeState = location.state as CheckoutLocationState | null;
-  const { user, openAuthModal } = useAuth();
+  const { user, isAuthenticated, openAuthModal } = useAuth();
   const { products, isLoading: isLoadingProducts, error: catalogError } = useProducts();
 
   const checkoutState = useMemo(() => {
@@ -67,6 +68,29 @@ export function Checkout() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [customer, setCustomer] = useState<CustomerForm>({ firstName: "", lastName: "", email: user?.email ?? "", shippingAddress: "" });
+
+  const [savedAddresses, setSavedAddresses] = useState<AddressResponse[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchAddresses()
+        .then((addrs) => {
+          setSavedAddresses(addrs);
+          const defaultAddr = addrs.find((a) => a.isDefault);
+          if (defaultAddr) {
+            setSelectedAddressId(defaultAddr.id);
+            setCustomer((prev) => ({
+              ...prev,
+              firstName: defaultAddr.recipientName.split(" ")[0] || "",
+              lastName: defaultAddr.recipientName.split(" ").slice(1).join(" ") || "",
+              shippingAddress: `${defaultAddr.province} ${defaultAddr.city} ${defaultAddr.district || ""} ${defaultAddr.detailAddress}`.trim(),
+            }));
+          }
+        })
+        .catch(console.error);
+    }
+  }, [isAuthenticated]);
 
   const [showCashierModal, setShowCashierModal] = useState(false);
   const [createdOrder, setCreatedOrder] = useState<OrderResponse | null>(null);
@@ -136,6 +160,17 @@ export function Checkout() {
     }
   }, [user]);
 
+  useEffect(() => {
+    const fromSource: "config_lab" | "product_details" | "navbar" | "other" =
+      checkoutState?.prescription || checkoutState?.lensOptionTypes || checkoutState?.finishId
+        ? "config_lab"
+        : checkoutState?.product
+          ? "product_details"
+          : "other";
+    track("checkout_entered", { from_source: fromSource });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const lensTotal = useMemo(() => activeLensTypes.reduce((t, type) => t + (LENS_PRICES[type] ?? 0), 0), [activeLensTypes]);
   const subtotal = (selectedProduct?.basePrice ?? 0) + lensTotal;
   const completionScore = [customer.firstName, customer.lastName, customer.email, customer.shippingAddress].filter((v) => v.trim()).length;
@@ -151,10 +186,13 @@ export function Checkout() {
       setDiscount(res.discountAmount);
       setAppliedCoupon(res.code);
       setCouponSuccess(t("manifest.couponSuccess"));
+      track("checkout_coupon_applied", { coupon_code: res.code });
     } catch (err) {
       setDiscount(0);
       setAppliedCoupon("");
-      setCouponError(err instanceof Error ? err.message : t("manifest.couponError"));
+      const reason = err instanceof Error ? err.message : t("manifest.couponError");
+      setCouponError(reason);
+      track("checkout_coupon_failed", { reason });
     } finally {
       setIsCheckingCoupon(false);
     }
@@ -215,6 +253,8 @@ export function Checkout() {
     const numericPrescription = getNumericPrescription();
     if (!numericPrescription) { setSubmitError(t("prescriptionNumberError")); return; }
     setIsSubmitting(true); setSubmitError(null);
+    const submitChannel = paymentChannel === "ALIPAY" ? "alipay" : "wechat";
+    track("checkout_submit_clicked", { channel: submitChannel, total_amount: Math.max(0, subtotal - discount) });
     try {
       const response = await checkoutOrder({
         productId: selectedProduct.id,
@@ -230,7 +270,8 @@ export function Checkout() {
         paymentChannel: paymentChannel,
         finishId: finishId || undefined
       });
-      
+      track("order_created", { order_id: response.orderNumber, total_amount: response.totalAmount });
+
       if (paymentChannel === "ALIPAY") {
         if (response.payData) {
           const parser = new DOMParser();
@@ -246,6 +287,7 @@ export function Checkout() {
                 form.setAttribute("action", "http://localhost:8081" + action);
               }
             }
+            track("order_payment_initiated", { order_id: response.orderNumber, channel: "alipay" });
             document.body.appendChild(form);
             form.submit();
             return;
@@ -268,6 +310,7 @@ export function Checkout() {
         });
       } else {
         // WeChat Pay modal flow
+        track("order_payment_initiated", { order_id: response.orderNumber, channel: "wechat" });
         setCreatedOrder(response);
         setIsPaid(false);
         setShowCashierModal(true);
@@ -275,7 +318,9 @@ export function Checkout() {
       }
     } catch (error) {
       if (isApiErrorWithStatus(error, 401) || isApiErrorWithStatus(error, 403)) { openAuthModal({ mode: "signin", message: t("sessionExpired"), pendingNavigation: { path: "/checkout", state: { product: selectedProduct } } }); }
-      setSubmitError(error instanceof Error ? error.message : t("checkoutFailed"));
+      const failReason = error instanceof Error ? error.message : t("checkoutFailed");
+      setSubmitError(failReason);
+      track("checkout_submit_failed", { reason: failReason });
     } finally { setIsSubmitting(false); }
   }
 
@@ -288,6 +333,40 @@ export function Checkout() {
             {user ? <div className="mb-6 rounded-2xl border border-slate-200 bg-slate-50/80 px-5 py-4"><p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-slate-400">{t("step1.accountOnFile")}</p><div className="mt-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-semibold text-brand-primary">{accountDisplayName}</p><p className="text-sm text-slate-500">{user.email}</p></div><div className="text-[10px] uppercase tracking-[0.18em] font-semibold text-brand-cyan">{t("step1.syncedToCheckout")}</div></div></div> : null}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6"><div className="flex flex-col gap-2"><label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">{t("step1.firstName")}</label><input name="firstName" value={customer.firstName} onChange={handleCustomerChange} required type="text" className="w-full bg-transparent border-0 border-b border-slate-200 py-2 focus:ring-0 focus:border-brand-primary transition-colors text-sm font-medium" /></div><div className="flex flex-col gap-2"><label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">{t("step1.lastName")}</label><input name="lastName" value={customer.lastName} onChange={handleCustomerChange} required type="text" className="w-full bg-transparent border-0 border-b border-slate-200 py-2 focus:ring-0 focus:border-brand-primary transition-colors text-sm font-medium" /></div></div>
             <div className="flex flex-col gap-2 mb-6"><label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">{t("step1.emailAddress")}</label><input name="email" value={customer.email} onChange={handleCustomerChange} required type="email" readOnly className="w-full bg-transparent border-0 border-b border-slate-200 py-2 focus:ring-0 focus:border-brand-primary transition-colors text-sm font-medium" /></div>
+            {savedAddresses.length > 0 && (
+              <div className="mb-6 mt-4">
+                <label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest block mb-3">
+                  {t("selectSavedAddress")}
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {savedAddresses.map((addr) => (
+                    <button
+                      key={addr.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedAddressId(addr.id);
+                        setCustomer((prev) => ({
+                          ...prev,
+                          firstName: addr.recipientName.split(" ")[0] || "",
+                          lastName: addr.recipientName.split(" ").slice(1).join(" ") || "",
+                          shippingAddress: `${addr.province} ${addr.city} ${addr.district || ""} ${addr.detailAddress}`.trim(),
+                        }));
+                      }}
+                      className={`text-left rounded-xl border p-3.5 flex flex-col justify-between transition-all ${
+                        selectedAddressId === addr.id
+                          ? "border-brand-cyan bg-slate-50/50 ring-1 ring-brand-cyan/25"
+                          : "border-slate-200 hover:bg-slate-50/30"
+                      }`}
+                    >
+                      <span className="text-xs font-semibold text-brand-primary block">{addr.recipientName} ({addr.phoneNumber})</span>
+                      <span className="text-[11px] text-slate-500 mt-1 block truncate">
+                        {addr.province} {addr.city} {addr.detailAddress}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="flex flex-col gap-2"><label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">{t("step1.shippingAddress")}</label><input name="shippingAddress" value={customer.shippingAddress} onChange={handleCustomerChange} required type="text" className="w-full bg-transparent border-0 border-b border-slate-200 py-2 focus:ring-0 focus:border-brand-primary transition-colors text-sm font-medium" /></div>
           </SectionCard>
           <SectionCard title={t("step2.title")} eyebrow={t("step2.eyebrow")} description={prescriptionFromConfig ? t("step2.fromConfigLab") : t("step2.defaultDescription")}>
@@ -320,11 +399,16 @@ export function Checkout() {
           <SectionCard title={t("step3.title")} eyebrow={t("step3.eyebrow")} description={t("step3.description")}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* WeChat Card */}
-              <div 
-                onClick={() => setPaymentChannel("WECHAT")}
+              <div
+                onClick={() => {
+                  if (paymentChannel !== "WECHAT") {
+                    track("checkout_payment_method_selected", { channel: "wechat" });
+                  }
+                  setPaymentChannel("WECHAT");
+                }}
                 className={`border-2 rounded-2xl p-5 flex items-center justify-between cursor-pointer transition-all ${
-                  paymentChannel === "WECHAT" 
-                    ? "border-emerald-500 bg-emerald-50/20 shadow-sm" 
+                  paymentChannel === "WECHAT"
+                    ? "border-emerald-500 bg-emerald-50/20 shadow-sm"
                     : "border-slate-200 bg-white hover:border-slate-300"
                 }`}
               >
@@ -340,11 +424,16 @@ export function Checkout() {
               </div>
 
               {/* Alipay Card */}
-              <div 
-                onClick={() => setPaymentChannel("ALIPAY")}
+              <div
+                onClick={() => {
+                  if (paymentChannel !== "ALIPAY") {
+                    track("checkout_payment_method_selected", { channel: "alipay" });
+                  }
+                  setPaymentChannel("ALIPAY");
+                }}
                 className={`border-2 rounded-2xl p-5 flex items-center justify-between cursor-pointer transition-all ${
-                  paymentChannel === "ALIPAY" 
-                    ? "border-sky-500 bg-sky-50/20 shadow-sm" 
+                  paymentChannel === "ALIPAY"
+                    ? "border-sky-500 bg-sky-50/20 shadow-sm"
                     : "border-slate-200 bg-white hover:border-slate-300"
                 }`}
               >
@@ -371,7 +460,7 @@ export function Checkout() {
             {selectedProduct ? (
               <div className="flex gap-4 sm:gap-6 items-center border-b border-white/10 pb-6 mb-6">
                 <div className="w-20 h-20 bg-white rounded-lg flex items-center justify-center p-2 shrink-0 shadow-[0_12px_24px_-18px_rgba(15,23,42,0.8)]">
-                  <img src={selectedProduct.imageUrl} alt={i18n.language === "zh" ? selectedProduct.nameZh : selectedProduct.nameEn} className="w-full h-full object-contain mix-blend-multiply" />
+                  <img src={selectedProduct.imageUrl} alt={i18n.language === "zh" ? selectedProduct.nameZh : selectedProduct.nameEn} className="w-full h-full object-contain mix-blend-multiply" loading="lazy" />
                 </div>
                 <div className="flex-1">
                   <h3 className="font-display font-medium text-lg">
@@ -513,6 +602,7 @@ export function Checkout() {
                     src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(createdOrder.payData ?? "")}`}
                     alt={t("cashier.qrAlt")}
                     className="w-48 h-48 object-contain rounded-xl"
+                    loading="lazy"
                   />
                   {/* Scan laser line animation */}
                   <div className="absolute left-6 right-6 h-0.5 bg-emerald-500/80 shadow-[0_0_8px_rgba(16,185,129,0.8)]" style={{ animation: "scan 2s ease-in-out infinite" }} />

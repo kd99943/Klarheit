@@ -1,4 +1,5 @@
 import { CalendarDays, CheckCircle2, CreditCard, MapPin, ShieldCheck, Sparkles, UserRound } from "lucide-react";
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../auth/AuthProvider";
@@ -7,11 +8,17 @@ import { formatPrice, formatDate } from "../lib/utils";
 import { PageIntro } from "../components/ui/PageIntro";
 import { SectionCard } from "../components/ui/SectionCard";
 import { Button } from "../components/ui/Button";
+import { track } from "../services/analytics";
 
 export function MyAccountPage() {
   const { t } = useTranslation("account");
   const { user } = useAuth();
   const { orders, isLoading: isLoadingOrders, error: ordersError } = useOrders();
+
+  useEffect(() => {
+    track("account_page_viewed", {});
+    track("orders_list_viewed", {});
+  }, []);
 
   return (
     <div className="flex-1 w-full bg-surface-offwhite px-5 py-10 sm:px-8 lg:px-12 lg:py-16">
@@ -55,11 +62,11 @@ export function MyAccountPage() {
                   {orders.map((order) => (
                     <div key={order.orderNumber} className="rounded-2xl border border-slate-200 bg-white px-5 py-5 shadow-[0_18px_40px_-36px_rgba(15,23,42,0.3)]">
                       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                        <div>
-                          <p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-slate-400">{order.orderNumber}</p>
-                          <h3 className="mt-2 text-lg font-display font-medium text-brand-primary">{order.productName}</h3>
+                        <Link to={`/order/${order.orderNumber}`} className="group hover:opacity-85 transition-opacity">
+                          <p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-slate-400 group-hover:text-brand-cyan transition-colors">{order.orderNumber}</p>
+                          <h3 className="mt-2 text-lg font-display font-medium text-brand-primary group-hover:text-brand-cyan transition-colors">{order.productName}</h3>
                           <p className="mt-1 text-sm text-slate-500">{formatDate(order.createdAt)}</p>
-                        </div>
+                        </Link>
                         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:min-w-[360px]">
                           <div className="rounded-xl bg-slate-50 px-4 py-3"><p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-slate-400">{t("orders.status")}</p><p className="mt-2 text-sm font-medium text-brand-primary">{order.status}</p></div>
                           <div className="rounded-xl bg-slate-50 px-4 py-3"><p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-slate-400">{t("orders.total")}</p><p className="mt-2 text-sm font-medium text-brand-primary">{formatPrice(order.totalAmount)}</p></div>
@@ -79,8 +86,8 @@ export function MyAccountPage() {
                 {[
                   { icon: UserRound, label: t("quickActions.profileDetails"), meta: t("quickActions.profileDetailsMeta"), to: "/profile-details" },
                   { icon: CreditCard, label: t("quickActions.billingCheckout"), meta: t("quickActions.billingCheckoutMeta"), to: "/checkout" },
-                  { icon: CalendarDays, label: t("quickActions.appointments"), meta: t("quickActions.appointmentsMeta") },
-                  { icon: MapPin, label: t("quickActions.savedAddresses"), meta: t("quickActions.savedAddressesMeta") },
+                  { icon: CalendarDays, label: t("quickActions.appointments"), meta: t("quickActions.appointmentsMeta"), to: "/appointments" },
+                  { icon: MapPin, label: t("quickActions.savedAddresses"), meta: t("quickActions.savedAddressesMeta"), to: "/addresses" },
                 ].map((item) => {
                   const content = (
                     <div className="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-4 text-left transition-colors hover:bg-slate-50">

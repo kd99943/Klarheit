@@ -37,6 +37,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private final boolean enabled;
     private final int capacity;
     private final int refillPerMinute;
+    private final boolean trustForwardedFor;
     private final Map<String, Bucket> buckets = java.util.Collections.synchronizedMap(
             new java.util.LinkedHashMap<>(MAX_ENTRIES + 1, 0.75f, true) {
                 @Override
@@ -49,17 +50,22 @@ public class RateLimitFilter extends OncePerRequestFilter {
     public RateLimitFilter(
             @Value("${app.rate-limit.enabled:true}") boolean enabled,
             @Value("${app.rate-limit.capacity:10}") int capacity,
-            @Value("${app.rate-limit.refill-per-minute:10}") int refillPerMinute) {
+            @Value("${app.rate-limit.refill-per-minute:10}") int refillPerMinute,
+            @Value("${app.rate-limit.trust-forwarded-for:false}") boolean trustForwardedFor) {
         this.enabled = enabled;
         this.capacity = capacity;
         this.refillPerMinute = refillPerMinute;
+        this.trustForwardedFor = trustForwardedFor;
     }
 
     private static final java.util.Set<String> RATE_LIMITED_PATHS = java.util.Set.of(
             "/api/v1/auth/login",
             "/api/v1/auth/register",
+            "/api/v1/auth/forgot-password",
             "/api/v1/orders/checkout",
-            "/api/v1/coupons/validate"
+            "/api/v1/coupons/validate",
+            // SMS verification code endpoint — rate-limited to prevent SMS-bombing / cost abuse.
+            "/api/v1/phone/send-code"
     );
 
     private static final java.util.Set<String> RATE_LIMITED_PREFIXES = java.util.Set.of(
@@ -81,7 +87,12 @@ public class RateLimitFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
         String clientIp = getClientIp(request);
-        Bucket bucket = buckets.computeIfAbsent(clientIp, this::createBucket);
+        // Include the request path in the bucket key so that each rate-limited
+        // endpoint gets its own bucket per IP. Without this, a user who logs in
+        // and then registers (or checks out, validates a coupon, etc.) within the
+        // same minute would exhaust a single shared bucket and receive 429s.
+        String bucketKey = clientIp + ":" + request.getRequestURI();
+        Bucket bucket = buckets.computeIfAbsent(bucketKey, this::createBucket);
 
         if (bucket.tryConsume(1)) {
             filterChain.doFilter(request, response);
@@ -104,8 +115,15 @@ public class RateLimitFilter extends OncePerRequestFilter {
     }
 
     private String getClientIp(HttpServletRequest request) {
-        // Only trust X-Forwarded-For when behind a known proxy; for now use remote addr
-        // to prevent IP spoofing. In production, configure TrustedProxyFilter.
+        // Trust X-Forwarded-For only when explicitly enabled (e.g. behind a known reverse proxy).
+        // Defaults to false so that, when the app is directly exposed, clients cannot
+        // spoof their IP via the X-Forwarded-For header to bypass rate limits.
+        if (trustForwardedFor) {
+            String xForwardedFor = request.getHeader("X-Forwarded-For");
+            if (xForwardedFor != null && !xForwardedFor.isBlank()) {
+                return xForwardedFor.split(",")[0].trim();
+            }
+        }
         return request.getRemoteAddr();
     }
 }

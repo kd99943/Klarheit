@@ -76,5 +76,6 @@
   "cashier.secureGateway": "Secure Payment Escrow",
   "validation.invalidNumber": "{{field}} must be a valid number.",
   "validation.outOfRange": "{{field}} must be between {{min}} and {{max}}.",
-  "validation.stepIncrement": "{{field}} must be in 0.25 increments (e.g. -2.00, -2.25)."
+  "validation.stepIncrement": "{{field}} must be in 0.25 increments (e.g. -2.00, -2.25).",
+  "selectSavedAddress": "Select Saved Address"
 }

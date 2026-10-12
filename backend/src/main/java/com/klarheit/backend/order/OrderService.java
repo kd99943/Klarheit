@@ -11,6 +11,8 @@ import com.klarheit.backend.lens.LensOptionRepository;
 import com.klarheit.backend.order.dto.OrderRequestDTO;
 import com.klarheit.backend.order.dto.OrderResponseDTO;
 import com.klarheit.backend.order.dto.OrderSummaryDTO;
+import com.klarheit.backend.order.dto.OrderDetailResponseDTO;
+import com.klarheit.backend.order.dto.PrescriptionDetailsDTO;
 import com.klarheit.backend.payment.PaymentInitiateResult;
 import com.klarheit.backend.payment.PaymentService;
 import java.util.Arrays;
@@ -23,8 +25,11 @@ import com.klarheit.backend.product.ProductRepository;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -74,9 +79,18 @@ public class OrderService {
 
         List<String> normalizedLensTypes = normalizeLensTypes(request.lensOptionTypes());
         List<LensOption> lensOptions = lensOptionRepository.findByTypeIn(normalizedLensTypes);
-        if (lensOptions.size() != normalizedLensTypes.size()) {
+
+        // Deduplicate found lens options by type to handle potential database duplicates robustly
+        Map<String, LensOption> uniqueLensOptions = new LinkedHashMap<>();
+        for (LensOption option : lensOptions) {
+            uniqueLensOptions.putIfAbsent(option.getType(), option);
+        }
+
+        if (uniqueLensOptions.size() != normalizedLensTypes.size()) {
             throw new IllegalArgumentException("One or more selected lens options are invalid.");
         }
+
+        List<LensOption> deduplicatedLensOptions = new ArrayList<>(uniqueLensOptions.values());
 
         Prescription prescription = prescriptionRepository.save(Prescription.builder()
                 .sphOd(request.prescription().sphOd())
@@ -89,7 +103,7 @@ public class OrderService {
                 .userId(user.getId())
                 .build());
 
-        BigDecimal lensTotal = lensOptions.stream()
+        BigDecimal lensTotal = deduplicatedLensOptions.stream()
                 .map(LensOption::getAdditionalPrice)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal totalAmount = product.getBasePrice().add(lensTotal);
@@ -108,9 +122,9 @@ public class OrderService {
             finalTotalAmount = BigDecimal.ZERO;
         }
 
-        String orderStatus = "CREATED";
+        String orderStatus = OrderStatus.CREATED;
         if (request.paymentChannel() != null && !request.paymentChannel().isBlank()) {
-            orderStatus = "PENDING_PAYMENT";
+            orderStatus = OrderStatus.PENDING_PAYMENT;
         }
 
         // Retry on order_number collision (unique constraint violation)
@@ -128,7 +142,7 @@ public class OrderService {
                         .customerLastName(request.customer().lastName().trim())
                         .customerEmail(user.getEmail())
                         .shippingAddress(request.customer().shippingAddress().trim())
-                        .lensOptions(lensOptions)
+                        .lensOptions(deduplicatedLensOptions)
                         .paymentChannel(request.paymentChannel())
                         .discountAmount(discountAmount)
                         .appliedCouponCode(appliedCouponCode)
@@ -151,7 +165,7 @@ public class OrderService {
         }
 
         String payData = null;
-        if ("PENDING_PAYMENT".equals(orderStatus)) {
+        if (OrderStatus.PENDING_PAYMENT.equals(orderStatus)) {
             PaymentInitiateResult payResult = paymentService.initiatePayment(
                     order.getOrderNumber(), finalTotalAmount, request.paymentChannel());
             payData = payResult.payData();
@@ -177,15 +191,38 @@ public class OrderService {
 
     @Transactional
     public void completePayment(String orderNumber, String gatewayTransactionId, String paymentChannel) {
-        Order order = orderRepository.findByOrderNumber(orderNumber)
+        // Backward-compatible path (no amount verification). Used only by the dev/mock
+        // trigger. Real gateway callbacks MUST call completePayment(..., paidAmount).
+        log.warn("Completing payment for order {} WITHOUT amount verification. This should only happen in dev/mock.", orderNumber);
+        completePayment(orderNumber, gatewayTransactionId, paymentChannel, null);
+    }
+
+    @Transactional
+    public void completePayment(String orderNumber, String gatewayTransactionId, String paymentChannel, java.math.BigDecimal paidAmount) {
+        Order order = orderRepository.findByOrderNumberWithWriteLock(orderNumber)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderNumber));
 
-        if ("PAID".equals(order.getStatus())) {
-            log.info("Order {} is already paid. Ignoring duplicate webhook callback.", orderNumber);
+        if (OrderStatus.CANCELLED.equalsIgnoreCase(order.getStatus())) {
+            log.warn("Order {} has been CANCELLED due to timeout, but received payment callback. Manual intervention may be required.", orderNumber);
             return;
         }
 
-        order.setStatus("PAID");
+        if (OrderStatus.PAID.equalsIgnoreCase(order.getStatus()) ||
+            OrderStatus.SHIPPED.equalsIgnoreCase(order.getStatus()) ||
+            OrderStatus.DELIVERED.equalsIgnoreCase(order.getStatus())) {
+            log.info("Order {} payment already processed. Current status: {}. Ignoring duplicate webhook callback.", orderNumber, order.getStatus());
+            return;
+        }
+
+        // Amount verification: prevent a small payment being mapped to a large order.
+        if (paidAmount != null && order.getTotalAmount().compareTo(paidAmount) != 0) {
+            log.error("Payment amount MISMATCH for order {}: expected {}, received {} from channel {}",
+                    orderNumber, order.getTotalAmount(), paidAmount, paymentChannel);
+            throw new IllegalStateException("Payment amount mismatch: expected " + order.getTotalAmount()
+                    + " but received " + paidAmount);
+        }
+
+        order.setStatus(OrderStatus.PAID);
         order.setGatewayTransactionId(gatewayTransactionId);
         order.setPaidAt(LocalDateTime.now());
         if (order.getPaymentChannel() == null) {
@@ -203,6 +240,26 @@ public class OrderService {
                     order.getTotalAmount().toPlainString());
         } catch (Exception e) {
             log.error("Failed to send order confirmation email for order: {}", orderNumber, e);
+        }
+    }
+
+    @Transactional
+    public void cancelExpiredOrder(String orderNumber) {
+        Order order = orderRepository.findByOrderNumberWithWriteLock(orderNumber)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderNumber));
+
+        if (!OrderStatus.CREATED.equalsIgnoreCase(order.getStatus()) && !OrderStatus.PENDING_PAYMENT.equalsIgnoreCase(order.getStatus())) {
+            log.info("Order {} is not in CREATED or PENDING_PAYMENT status. Current status: {}. Skipping cancellation.", orderNumber, order.getStatus());
+            return;
+        }
+
+        order.setStatus(OrderStatus.CANCELLED);
+        orderRepository.save(order);
+        log.info("Order {} has been cancelled due to expiration.", orderNumber);
+
+        if (order.getAppliedCouponCode() != null && !order.getAppliedCouponCode().isBlank()) {
+            couponService.decrementCouponUsage(order.getAppliedCouponCode());
+            log.info("Released coupon usage for order {} using coupon code {}", orderNumber, order.getAppliedCouponCode());
         }
     }
 
@@ -262,5 +319,49 @@ public class OrderService {
         return orderRepository.findByOrderNumber(orderNumber)
                 .map(Order::getStatus)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderNumber));
+    }
+
+    @Transactional(readOnly = true)
+    public OrderDetailResponseDTO getOrderDetails(String orderNumber, String email) {
+        UserAccount user = userService.findByEmailIgnoreCase(email)
+                .orElseThrow(() -> new IllegalArgumentException("Authenticated user could not be found."));
+        Order order = orderRepository.findByOrderNumber(orderNumber)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderNumber));
+
+        if (!order.getUserId().equals(user.getId()) && !order.getCustomerEmail().equalsIgnoreCase(user.getEmail())) {
+            throw new IllegalArgumentException("Unauthorized to view this order.");
+        }
+
+        List<OrderDetailResponseDTO.LensOptionDetailDTO> lensOptionDetails = order.getLensOptions().stream()
+                .map(lo -> new OrderDetailResponseDTO.LensOptionDetailDTO(lo.getType(), lo.getLabel(), lo.getAdditionalPrice()))
+                .toList();
+
+        Prescription p = order.getPrescription();
+        PrescriptionDetailsDTO prescriptionDetails = p == null ? null : new PrescriptionDetailsDTO(
+                p.getSphOd(), p.getSphOs(), p.getCylOd(), p.getCylOs(), p.getAxisOd(), p.getAxisOs(), p.getPd()
+        );
+
+        return new OrderDetailResponseDTO(
+                order.getOrderNumber(),
+                order.getStatus(),
+                order.getTotalAmount(),
+                order.getDiscountAmount(),
+                order.getAppliedCouponCode(),
+                order.getCreatedAt(),
+                order.getPaidAt(),
+                order.getCustomerFirstName(),
+                order.getCustomerLastName(),
+                order.getCustomerEmail(),
+                order.getShippingAddress(),
+                order.getPaymentChannel(),
+                order.getGatewayTransactionId(),
+                order.getFinishId(),
+                order.getProduct().getName(),
+                order.getProduct().getImageUrl(),
+                lensOptionDetails,
+                prescriptionDetails,
+                order.getCarrier(),
+                order.getTrackingNumber()
+        );
     }
 }

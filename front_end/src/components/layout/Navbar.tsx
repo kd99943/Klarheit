@@ -1,10 +1,12 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, FileText, LogOut, Menu, ShoppingBag, User, X } from "lucide-react";
+import { ChevronDown, FileText, LogOut, Menu, ShoppingBag, User, X, SlidersHorizontal } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
 import { useAuth } from "../../auth/AuthProvider";
+import { useCart } from "../../hooks/useCart";
 import { LanguageToggle } from "./LanguageToggle";
+import { track } from "../../services/analytics";
 
 export function Navbar() {
   const { t } = useTranslation();
@@ -14,6 +16,7 @@ export function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, isAuthenticated, openAuthModal, requireAuth, logout } = useAuth();
+  const { count: cartCount } = useCart();
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
 
   // Dark mode overlay triggers on AR Studio
@@ -99,22 +102,21 @@ export function Navbar() {
           </div>
           <LanguageToggle isDark={isDarkCanvas || scrolled} className="hidden sm:flex" />
           <button
-            onClick={() => {
-              if (requireAuth(
-                { path: "/checkout" },
-                t("auth.defaultMessage")
-              )) {
-                navigate("/checkout");
-              }
-            }}
+            onClick={() => navigate("/cart")}
             className={cn(
-              "hidden md:block text-[10px] uppercase tracking-widest border px-4 lg:px-6 py-2 transition-colors duration-500 rounded-sm font-medium",
+              "relative hidden md:flex items-center gap-2 text-[10px] uppercase tracking-widest border px-4 lg:px-6 py-2 transition-colors duration-500 rounded-sm font-medium",
               isDarkCanvas || scrolled
                 ? "border-white/50 hover:bg-white hover:text-brand-primary"
                 : "border-slate-200 hover:bg-brand-primary hover:text-white"
             )}
           >
+            <ShoppingBag className="w-3.5 h-3.5" />
             {t("nav.checkout")}
+            {cartCount > 0 && (
+              <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                {cartCount}
+              </span>
+            )}
           </button>
           <div className="relative" ref={accountMenuRef}>
             {isAuthenticated && user ? (
@@ -226,10 +228,30 @@ export function Navbar() {
                       </span>
                       <span className={cn("text-[10px] uppercase tracking-[0.18em]", isDarkCanvas || scrolled ? "text-white/45" : "text-slate-400")}>{t("nav.config")}</span>
                     </button>
+                    {user?.role === "ADMIN" && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAccountMenuOpen(false);
+                          navigate("/admin");
+                        }}
+                        className={cn(
+                          "flex items-center justify-between rounded-xl border px-4 py-3 text-left text-sm transition-colors border-dashed border-brand-cyan/40 hover:bg-brand-cyan/5",
+                          isDarkCanvas || scrolled ? "border-white/10" : ""
+                        )}
+                      >
+                        <span className="flex items-center gap-3 text-brand-cyan">
+                          <SlidersHorizontal className="h-4 w-4" strokeWidth={1.5} />
+                          {t("nav.adminDashboard")}
+                        </span>
+                        <span className="text-[10px] uppercase tracking-[0.18em] text-brand-cyan">{t("nav.adminShort")}</span>
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => {
                         setAccountMenuOpen(false);
+                        track("auth_signout_clicked", {});
                         logout();
                       }}
                       className={cn(

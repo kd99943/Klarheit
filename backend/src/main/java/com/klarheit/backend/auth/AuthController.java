@@ -27,27 +27,33 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<AuthResponseDTO> register(@Valid @RequestBody RegisterRequestDTO request, jakarta.servlet.http.HttpServletResponse response) {
+    public ResponseEntity<AuthResponseDTO> register(@Valid @RequestBody RegisterRequestDTO request,
+                                                     jakarta.servlet.http.HttpServletRequest httpRequest,
+                                                     jakarta.servlet.http.HttpServletResponse response) {
         AuthResponseDTO authResponse = authService.register(request);
-        setJwtCookie(response, authResponse.token());
-        return ResponseEntity.ok(new AuthResponseDTO(null, authResponse.user()));
+        setJwtCookie(response, authResponse.token(), httpRequest);
+        return ResponseEntity.ok(authResponse);
     }
 
     @PostMapping("/login")
-    public ResponseEntity<AuthResponseDTO> login(@Valid @RequestBody LoginRequestDTO request, jakarta.servlet.http.HttpServletResponse response) {
+    public ResponseEntity<AuthResponseDTO> login(@Valid @RequestBody LoginRequestDTO request,
+                                                jakarta.servlet.http.HttpServletRequest httpRequest,
+                                                jakarta.servlet.http.HttpServletResponse response) {
         AuthResponseDTO authResponse = authService.login(request);
-        setJwtCookie(response, authResponse.token());
-        return ResponseEntity.ok(new AuthResponseDTO(null, authResponse.user()));
+        setJwtCookie(response, authResponse.token(), httpRequest);
+        return ResponseEntity.ok(authResponse);
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout(jakarta.servlet.http.HttpServletResponse response) {
+    public ResponseEntity<Void> logout(jakarta.servlet.http.HttpServletRequest httpRequest,
+                                        jakarta.servlet.http.HttpServletResponse response) {
+        boolean secure = httpRequest.isSecure();
         org.springframework.http.ResponseCookie cookie = org.springframework.http.ResponseCookie.from("klarheit_auth_token", "")
                 .httpOnly(true)
-                .secure(true)
+                .secure(secure)
                 .path("/")
                 .maxAge(0)
-                .sameSite("None")
+                .sameSite("Lax")
                 .build();
         response.addHeader(org.springframework.http.HttpHeaders.SET_COOKIE, cookie.toString());
         return ResponseEntity.ok().build();
@@ -68,13 +74,17 @@ public class AuthController {
         return ResponseEntity.ok().build();
     }
 
-    private void setJwtCookie(jakarta.servlet.http.HttpServletResponse response, String token) {
+    private void setJwtCookie(jakarta.servlet.http.HttpServletResponse response, String token,
+                              jakarta.servlet.http.HttpServletRequest request) {
+        // Use the actual request scheme so that on plain HTTP (local dev) the
+        // browser stores the cookie, while on HTTPS (production) it stays Secure.
+        boolean secure = request.isSecure();
         org.springframework.http.ResponseCookie cookie = org.springframework.http.ResponseCookie.from("klarheit_auth_token", token)
                 .httpOnly(true)
-                .secure(true)
+                .secure(secure)
                 .path("/")
                 .maxAge(86400) // 1 day
-                .sameSite("None") // None required for cross-site cookie (frontend and backend on different subdomains)
+                .sameSite("Lax") // Lax mitigates CSRF for same-origin top-level navigations while still allowing the cookie to be sent on cross-site requests initiated by top-level GET navigation (e.g. payment return).
                 .build();
         response.addHeader(org.springframework.http.HttpHeaders.SET_COOKIE, cookie.toString());
     }

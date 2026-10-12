@@ -2,7 +2,10 @@ spring:
   application:
     name: klarheit-backend
   profiles:
-    default: local
+    # Fail-safe default: production-safe settings. Local development must
+    # explicitly set SPRING_PROFILES_ACTIVE=local to enable dev conveniences
+    # (ddl-auto:update, mock payment terminal, etc.).
+    default: prod
   datasource:
     url: ${DB_URL}
     username: ${DB_USERNAME}
@@ -27,7 +30,9 @@ spring:
   flyway:
     enabled: ${FLYWAY_ENABLED:true}
     locations: classpath:db/migration
-    repair-on-migrate: true
+    # repair-on-migrate disabled: silently repairing checksum mismatches masks
+    # tampered/modified migrations. Use `flyway repair` explicitly when needed.
+    repair-on-migrate: false
     baseline-on-migrate: true
   jackson:
     time-zone: ${APP_TIME_ZONE:UTC}
@@ -36,6 +41,10 @@ app:
   jwt:
     secret: ${APP_JWT_SECRET}
     expiration-millis: ${APP_JWT_EXPIRATION_MILLIS:86400000}
+    # Issuer and audience claims bind the token to this service so a token
+    # minted for a different audience / issuer cannot be replayed here.
+    issuer: ${APP_JWT_ISSUER:klarheit}
+    audience: ${APP_JWT_AUDIENCE:klarheit-web}
   frontend-url: ${APP_FRONTEND_URL:http://localhost:5173}
   resend:
     api-key: ${RESEND_API_KEY:}
@@ -49,8 +58,14 @@ app:
     app-id: ${WECHAT_APP_ID:}
     mch-id: ${WECHAT_MCH_ID:}
     api-key: ${WECHAT_API_KEY:}
+    platform-public-key: ${WECHAT_PLATFORM_PUBLIC_KEY:}
   payment:
     callback-secret: ${PAYMENT_CALLBACK_SECRET:}
+    webhook-ip-whitelist: ${PAYMENT_WEBHOOK_IP_WHITELIST:}
+    # Trust X-Forwarded-For / X-Real-IP headers on webhook callbacks. Enable only
+    # when the app is behind a trusted reverse proxy that overwrites these headers;
+    # otherwise an attacker could spoof them to bypass the IP whitelist.
+    webhook-trust-forwarded-for: ${PAYMENT_WEBHOOK_TRUST_FORWARDED_FOR:false}
   sms:
     provider: ${SMS_PROVIDER:mock}
     alibaba:
@@ -62,6 +77,9 @@ app:
     enabled: ${RATE_LIMIT_ENABLED:true}
     capacity: ${RATE_LIMIT_CAPACITY:10}
     refill-per-minute: ${RATE_LIMIT_REFILL_PER_MINUTE:10}
+    # Trust X-Forwarded-For for rate-limit keying. Enable when behind a trusted
+    # reverse proxy; disable when the app is directly exposed to prevent IP spoofing.
+    trust-forwarded-for: ${RATE_LIMIT_TRUST_FORWARDED_FOR:false}
 
 server:
   port: ${SERVER_PORT:8081}
@@ -72,6 +90,8 @@ management:
       exposure:
         include: health,prometheus,info
   endpoint:
+    # Only authenticated callers see component-level health details (DB / disk / etc.).
+    # Anonymous callers get aggregate UP/DOWN only.
     health:
-      show-details: always
+      show-details: when_authorized
 

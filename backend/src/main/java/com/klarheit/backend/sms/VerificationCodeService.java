@@ -42,13 +42,15 @@ public class VerificationCodeService {
             throw new IllegalStateException("验证码尝试次数过多，请重新获取");
         }
 
-        store.incrementAttempts(phone);
-
         if (!entry.code().equals(code)) {
+            store.incrementAttempts(phone);
             return false;
         }
 
-        store.remove(phone);
+        boolean removed = store.remove(phone, entry);
+        if (!removed) {
+            throw new IllegalStateException("验证码已被核销，请重新获取");
+        }
         return true;
     }
 }

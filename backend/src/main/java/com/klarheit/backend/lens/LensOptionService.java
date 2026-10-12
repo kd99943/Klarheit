@@ -2,6 +2,7 @@ package com.klarheit.backend.lens;
 
 import com.klarheit.backend.lens.dto.LensOptionResponseDTO;
 import java.util.List;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -12,6 +13,7 @@ public class LensOptionService {
         this.lensOptionRepository = lensOptionRepository;
     }
 
+    @Cacheable("lensOptions")
     public List<LensOptionResponseDTO> getOptions() {
         return lensOptionRepository.findAll().stream()
                 .map(option -> new LensOptionResponseDTO(

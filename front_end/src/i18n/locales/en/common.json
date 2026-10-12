@@ -17,6 +17,8 @@
   "nav.menu": "Menu",
   "nav.signInMessage": "Sign in or create your account to save your optical profile.",
   "nav.signedInReady": "Signed in and ready to manage orders and prescriptions",
+  "nav.adminDashboard": "Admin Dashboard",
+  "nav.adminShort": "Admin",
   "footer.copyright": "© 2024 Klarheit. Geneva, CH.",
   "footer.compliance": "Compliance: ISO 12870",
   "footer.status": "Status: Calibrated",
@@ -52,5 +54,14 @@
   "auth.backToSignIn": "Back to Sign In",
   "auth.passwordMismatch": "Passwords do not match",
   "auth.phoneRequired": "Phone number is required",
-  "auth.codeRequired": "Verification code is required"
+  "auth.codeRequired": "Verification code is required",
+  "auth.phoneNumber": "Phone Number",
+  "auth.sendCode": "Send Code",
+  "auth.verificationCode": "Verification Code",
+  "auth.codeSentTo": "Code sent to",
+  "auth.resendCode": "Resend in ({{seconds}}s)",
+  "auth.verifyCode": "Verify Code",
+  "protected.accessDenied": "Access Denied",
+  "protected.adminRequired": "Administrator Privileges Required",
+  "protected.adminRequiredDesc": "This section of the operational terminal requires administrative clearance. Please contact support if you believe this is in error."
 }

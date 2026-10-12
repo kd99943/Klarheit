@@ -73,5 +73,9 @@
   "cashier.paymentSuccessDesc": "我们已收到您的款项。您的订单正快马加鞭地送往实验室配镜，确认函已投递至您的注册邮箱。",
   "cashier.transactionId": "交易单号",
   "cashier.paymentChannel": "支付渠道",
-  "cashier.secureGateway": "安全支付闭环托管"
+  "cashier.secureGateway": "安全支付闭环托管",
+  "validation.invalidNumber": "{{field}} 必须为有效的数字。",
+  "validation.outOfRange": "{{field}} 必须在 {{min}} 至 {{max}} 范围内。",
+  "validation.stepIncrement": "{{field}} 必须为 0.25 步进增量（如 -2.00, -2.25）。",
+  "selectSavedAddress": "选择已保存的收货地址"
 }

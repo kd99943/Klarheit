@@ -1,10 +1,12 @@
 import { CheckCircle2, Package, Truck } from "lucide-react";
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "../components/ui/Button";
 import { formatPrice } from "../lib/utils";
 import { PageIntro } from "../components/ui/PageIntro";
 import { SectionCard } from "../components/ui/SectionCard";
+import { track } from "../services/analytics";
 
 type OrderConfirmationState = {
   orderNumber?: string;
@@ -19,6 +21,13 @@ export function OrderConfirmationPage() {
   const { t } = useTranslation("confirmation");
   const location = useLocation();
   const state = location.state as OrderConfirmationState | null;
+
+  useEffect(() => {
+    if (state?.orderNumber) {
+      track("order_confirmation_viewed", { order_id: state.orderNumber });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!state?.orderNumber) {
     return (

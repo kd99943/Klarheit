@@ -9,7 +9,13 @@ import java.util.Optional;
 public interface CouponRepository extends JpaRepository<Coupon, Long> {
     Optional<Coupon> findByCodeIgnoreCaseAndActiveTrue(String code);
 
+    Optional<Coupon> findByCodeIgnoreCase(String code);
+
     @Modifying
     @Query("UPDATE Coupon c SET c.usedCount = c.usedCount + 1 WHERE c.id = :couponId AND c.usedCount < c.maxUsages AND c.active = true")
     int incrementUsedCount(@Param("couponId") Long couponId);
+
+    @Modifying
+    @Query("UPDATE Coupon c SET c.usedCount = c.usedCount - 1 WHERE c.id = :couponId AND c.usedCount > 0")
+    int decrementUsedCount(@Param("couponId") Long couponId);
 }

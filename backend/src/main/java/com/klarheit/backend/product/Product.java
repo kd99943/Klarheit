@@ -35,6 +35,12 @@ public class Product {
     private BigDecimal basePrice;
     @Column(name = "image_url", nullable = false, length = 1024)
     private String imageUrl;
+    @Column(nullable = false, length = 60)
+    private String shape = "ROUND";
+    @Column(name = "specs_size", nullable = false, length = 120)
+    private String specsSize = "52-18-145";
+    @Column(name = "detail_images", length = 2048)
+    private String detailImages;
 
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ProductArConfig> arConfigs = new ArrayList<>();
@@ -56,6 +62,11 @@ public class Product {
     public String getMaterialZh() { return materialZh; }
     public BigDecimal getBasePrice() { return basePrice; }
     public String getImageUrl() { return imageUrl; }
+    public String getShape() { return shape; }
+    public String getSpecsSize() { return specsSize; }
+    public String getDetailImages() { return detailImages; }
+    public List<ProductArConfig> getArConfigs() { return arConfigs; }
+
     public void setId(Long id) { this.id = id; }
     public void setName(String name) { this.name = name; }
     public void setMaterial(String material) { this.material = material; }
@@ -65,7 +76,9 @@ public class Product {
     public void setMaterialZh(String materialZh) { this.materialZh = materialZh; }
     public void setBasePrice(BigDecimal basePrice) { this.basePrice = basePrice; }
     public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
-    public List<ProductArConfig> getArConfigs() { return arConfigs; }
+    public void setShape(String shape) { this.shape = shape; }
+    public void setSpecsSize(String specsSize) { this.specsSize = specsSize; }
+    public void setDetailImages(String detailImages) { this.detailImages = detailImages; }
     public void setArConfigs(List<ProductArConfig> arConfigs) { this.arConfigs = arConfigs; }
 
     public static final class Builder {
@@ -79,6 +92,9 @@ public class Product {
         public Builder materialZh(String materialZh) { instance.materialZh = materialZh; return this; }
         public Builder basePrice(BigDecimal basePrice) { instance.basePrice = basePrice; return this; }
         public Builder imageUrl(String imageUrl) { instance.imageUrl = imageUrl; return this; }
+        public Builder shape(String shape) { instance.shape = shape; return this; }
+        public Builder specsSize(String specsSize) { instance.specsSize = specsSize; return this; }
+        public Builder detailImages(String detailImages) { instance.detailImages = detailImages; return this; }
         public Builder arConfigs(List<ProductArConfig> arConfigs) { instance.arConfigs = arConfigs; return this; }
         public Product build() { return instance; }
     }

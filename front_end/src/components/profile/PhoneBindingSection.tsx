@@ -3,6 +3,7 @@ import { CheckCircle2, Loader2, Phone, ShieldCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../auth/AuthProvider";
 import { sendSmsCode, verifyAndBindPhone } from "../../services/api";
+import { track } from "../../services/analytics";
 
 type BindStep = "idle" | "phone" | "code" | "success";
 
@@ -33,6 +34,7 @@ export function PhoneBindingSection() {
     }
     setIsLoading(true);
     try {
+      track("phone_binding_initiated", {});
       await sendSmsCode(phone);
       setCooldown(60);
       setStep("code");
@@ -52,8 +54,11 @@ export function PhoneBindingSection() {
       await verifyAndBindPhone(phone, code);
       await refreshUser();
       setStep("success");
+      track("phone_binding_succeeded", {});
     } catch (err) {
-      setError(err instanceof Error ? err.message : "验证失败");
+      const reason = err instanceof Error ? err.message : "验证失败";
+      setError(reason);
+      track("phone_binding_failed", { reason });
     } finally {
       setIsLoading(false);
     }

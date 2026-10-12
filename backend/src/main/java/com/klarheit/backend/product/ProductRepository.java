@@ -1,6 +1,7 @@
 package com.klarheit.backend.product;
 
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -13,4 +14,8 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     @EntityGraph(attributePaths = {"arConfigs"})
     Page<Product> findAll(Pageable pageable);
+
+    @Override
+    @EntityGraph(attributePaths = {"arConfigs"})
+    Optional<Product> findById(Long id);
 }

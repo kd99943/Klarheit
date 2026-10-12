@@ -3,10 +3,10 @@ import { useTranslation } from "react-i18next";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "./AuthProvider";
 
-export function ProtectedRoute({ children, message }: { children: ReactElement; message: string }) {
+export function ProtectedRoute({ children, message, adminOnly }: { children: ReactElement; message: string; adminOnly?: boolean }) {
   const { t } = useTranslation("common");
   const location = useLocation();
-  const { isAuthenticated, isAuthReady, requireAuth } = useAuth();
+  const { isAuthenticated, isAuthReady, requireAuth, user } = useAuth();
   const attemptedPathRef = useRef<string | null>(null);
   const nextPath = `${location.pathname}${location.search}${location.hash}`;
 
@@ -45,6 +45,27 @@ export function ProtectedRoute({ children, message }: { children: ReactElement; 
           </h1>
           <p className="text-slate-500 font-light leading-relaxed">
             {message}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (adminOnly && user?.role !== "ADMIN") {
+    return (
+      <div className="flex-1 flex items-center justify-center px-5 py-24">
+        <div className="max-w-xl w-full border border-red-200 bg-red-50/10 rounded-[32px] p-10 text-center shadow-xl backdrop-blur-md">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6 text-red-500 font-bold text-2xl">
+            !
+          </div>
+          <p className="text-[10px] uppercase tracking-[0.2em] text-red-500 font-semibold mb-4">
+            {t("protected.accessDenied")}
+          </p>
+          <h1 className="text-3xl font-display font-light text-brand-primary mb-4">
+            {t("protected.adminRequired")}
+          </h1>
+          <p className="text-slate-500 font-light leading-relaxed mb-6">
+            {t("protected.adminRequiredDesc")}
           </p>
         </div>
       </div>

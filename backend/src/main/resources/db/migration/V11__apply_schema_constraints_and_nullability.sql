@@ -12,7 +12,23 @@ ALTER TABLE products MODIFY name VARCHAR(120) NULL;
 ALTER TABLE products MODIFY material VARCHAR(120) NULL;
 
 -- 2. Add unique constraint on (product_id, finish_id) for product_ar_configs.
---    This runs for the first time on every database (fresh or upgraded from V10),
---    so the constraint does not yet exist → ADD CONSTRAINT succeeds unconditionally.
-ALTER TABLE product_ar_configs
-    ADD CONSTRAINT uk_ar_configs_product_finish UNIQUE (product_id, finish_id);
+--    We use a stored procedure to check if the index already exists,
+--    making this migration idempotent on persistent databases.
+DROP PROCEDURE IF EXISTS AddUniqueConstraint;
+DELIMITER //
+CREATE PROCEDURE AddUniqueConstraint()
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM information_schema.statistics 
+        WHERE table_schema = DATABASE() 
+          AND table_name = 'product_ar_configs' 
+          AND index_name = 'uk_ar_configs_product_finish'
+    ) THEN
+        ALTER TABLE product_ar_configs
+            ADD CONSTRAINT uk_ar_configs_product_finish UNIQUE (product_id, finish_id);
+    END IF;
+END //
+DELIMITER ;
+CALL AddUniqueConstraint();
+DROP PROCEDURE AddUniqueConstraint;

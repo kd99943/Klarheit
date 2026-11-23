@@ -16,22 +16,41 @@ RUN mvn clean package -DskipTests -B
 # ==========================================
 # STAGE 2: Hardened Non-Root Runtime
 # ==========================================
-FROM eclipse-temurin:21.0.6_7-jre-alpine
+FROM eclipse-temurin:21-jre-noble
 
 WORKDIR /app
 
-# Generate JDK Class-Data Sharing (CDS) archive so core JDK classes map as file-backed pages instead of anon Metaspace
-RUN java -Xshare:dump
+RUN groupadd -r spring && useradd -r -g spring spring
 
-# Copy compiled fat JAR and extract into standard unpacked layout to eliminate NestedJarFile anon memory overhead
 COPY --from=compiler /app/target/backend-0.0.1-SNAPSHOT.jar app.jar
-RUN java -Djarmode=tools -jar app.jar extract --destination /app/extracted && rm -f app.jar
+RUN java -Xshare:dump && \
+    java -Djarmode=tools -jar app.jar extract --destination /app/extracted && \
+    rm -f app.jar && \
+    java -XX:ArchiveClassesAtExit=/app/app-cds.jsa \
+         -Dspring.context.exit=onRefresh \
+         -Dspring.profiles.active=prod \
+         -Dspring.main.lazy-initialization=false \
+         -Dspring.data.jpa.repositories.bootstrap-mode=default \
+         -Dspring.flyway.enabled=false \
+         -Dspring.jpa.hibernate.ddl-auto=none \
+         -Dspring.jpa.database-platform=org.hibernate.dialect.MySQLDialect \
+         -Dspring.jpa.properties.hibernate.boot.allow_jdbc_metadata_access=false \
+         -Dspring.jpa.properties.hibernate.temp.use_jdbc_metadata_defaults=false \
+         -Dspring.datasource.url=jdbc:mysql://127.0.0.1:3306/klarheit \
+         -Dspring.datasource.username=root \
+         -Dspring.datasource.password=root \
+         -Dspring.datasource.hikari.minimum-idle=0 \
+         -Dspring.datasource.hikari.initialization-fail-timeout=-1 \
+         -Dapp.jwt.secret=CdsTrainingSecretKeyMinimum32BytesLong123456 \
+         -jar /app/extracted/app.jar && \
+    chown -R spring:spring /app
 
-# Design secure OS group and unprivileged execution user
-RUN addgroup -S spring && adduser -S spring -G spring && chown -R spring:spring /app
 USER spring:spring
 
 EXPOSE 8080
 
-# Use shell form so Railway/Northflank $PORT env var is expanded at runtime.
-CMD ["sh", "-c", "exec java -Djava.security.egd=file:/dev/./urandom -Dserver.port=${PORT:-8080} -jar /app/extracted/app.jar"]
+ENV MALLOC_ARENA_MAX=1
+ENV MALLOC_TRIM_THRESHOLD_=65536
+ENV MALLOC_MMAP_THRESHOLD_=65536
+
+CMD ["sh", "-c", "exec java -XX:SharedArchiveFile=/app/app-cds.jsa -Djava.security.egd=file:/dev/./urandom -Dserver.port=${PORT:-8080} -jar /app/extracted/app.jar"]

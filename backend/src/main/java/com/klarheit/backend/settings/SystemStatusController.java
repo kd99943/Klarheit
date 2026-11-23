@@ -3,11 +3,9 @@ package com.klarheit.backend.settings;
 import java.util.Map;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/v1/system")
 public class SystemStatusController {
     private final SystemSettingService systemSettingService;
 
@@ -15,7 +13,7 @@ public class SystemStatusController {
         this.systemSettingService = systemSettingService;
     }
 
-    @GetMapping("/checkout-status")
+    @GetMapping("/api/v1/system/checkout-status")
     public ResponseEntity<Map<String, Object>> getCheckoutStatus() {
         boolean enabled = systemSettingService.isCheckoutEnabled();
         String pauseReason = systemSettingService.getCheckoutPauseReason();
@@ -23,5 +21,10 @@ public class SystemStatusController {
                 "checkoutEnabled", enabled,
                 "pauseReason", pauseReason
         ));
+    }
+
+    @GetMapping("/actuator/health")
+    public ResponseEntity<Map<String, String>> getHealth() {
+        return ResponseEntity.ok(Map.of("status", "UP"));
     }
 }

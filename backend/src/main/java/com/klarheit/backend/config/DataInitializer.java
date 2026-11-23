@@ -35,6 +35,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 @Configuration
 public class DataInitializer {
     @Bean
+    @Profile("local")
     ApplicationRunner seedCatalogData(ProductRepository productRepository, OrderRepository orderRepository) {
         return args -> normalizeAndDeduplicateProducts(productRepository, orderRepository);
     }

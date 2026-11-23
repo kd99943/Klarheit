@@ -18,6 +18,11 @@ import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+        name = "app.payment.reconciliation-scheduler-enabled",
+        havingValue = "true",
+        matchIfMissing = false
+)
 public class PaymentReconciliationScheduler {
 
     private final OrderRepository orderRepository;

@@ -58,7 +58,7 @@ export function PhoneBindingSection() {
     } catch (err) {
       const reason = err instanceof Error ? err.message : "验证失败";
       setError(reason);
-      track("phone_binding_failed", { reason });
+      track("phone_binding_failed", { reason_code: "verify_failed" });
     } finally {
       setIsLoading(false);
     }
@@ -152,7 +152,7 @@ export function PhoneBindingSection() {
               onClick={() => { setStep("idle"); setError(null); }}
               className="px-4 py-2 text-xs text-slate-400 hover:text-brand-primary transition-colors"
             >
-              取消
+              {t("addresses.cancel")}
             </button>
             <button
               disabled={isLoading || phone.length !== 11}
@@ -206,7 +206,7 @@ export function PhoneBindingSection() {
               onClick={() => { setStep("phone"); setCode(""); setError(null); }}
               className="px-4 py-2 text-xs text-slate-400 hover:text-brand-primary transition-colors"
             >
-              返回
+              {t("addresses.cancel")}
             </button>
             <button
               disabled={isLoading || code.length !== 6}

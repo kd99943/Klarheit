@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+    branches: ["main", "master"]
+
+jobs:
+  frontend:
+    name: Frontend (Lint, i18n, Unit Tests, Build & CSP WASM Smoke)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: front_end
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: front_end/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript typecheck
+        run: npm run lint
+
+      - name: Check bare i18n strings
+        run: npm run check-i18n
+
+      - name: Run unit tests
+        run: npm run test
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Verify production Nginx CSP header allows WebAssembly and data-URI QR
+        run: |
+          node -e '
+            const fs = require("fs");
+            const conf = fs.readFileSync("nginx.conf", "utf8");
+            if (!conf.includes("\x27wasm-unsafe-eval\x27")) {
+              throw new Error("nginx.conf script-src is missing wasm-unsafe-eval");
+            }
+            if (!conf.includes("worker-src \x27self\x27 blob:;")) {
+              throw new Error("nginx.conf is missing worker-src self blob:");
+            }
+            console.log("Nginx CSP verification passed.");
+          '
+
+  backend:
+    name: Backend (Maven Unit & Testcontainers MySQL Integration Tests)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "21"
+          cache: "maven"
+
+      - name: Run backend test suite
+        run: mvn test -Dspring.profiles.active=test -B

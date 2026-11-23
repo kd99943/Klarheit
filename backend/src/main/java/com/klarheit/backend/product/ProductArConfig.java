@@ -49,6 +49,12 @@ public class ProductArConfig {
     @Column(name = "model_url", length = 1024)
     private String modelUrl;
 
+    @Column(name = "model_scale_mode", nullable = false, length = 16)
+    private String modelScaleMode = "normalized";
+
+    @Column(name = "legacy_materials")
+    private Boolean legacyMaterials;
+
     @Column(name = "position_x", nullable = false, precision = 6, scale = 4)
     private BigDecimal positionX;
 
@@ -83,6 +89,8 @@ public class ProductArConfig {
     public String getFrameColor() { return frameColor; }
     public String getLensColor() { return lensColor; }
     public String getModelUrl() { return modelUrl; }
+    public String getModelScaleMode() { return modelScaleMode; }
+    public Boolean getLegacyMaterials() { return legacyMaterials; }
     public BigDecimal getPositionX() { return positionX; }
     public BigDecimal getPositionY() { return positionY; }
     public BigDecimal getPositionZ() { return positionZ; }
@@ -102,6 +110,8 @@ public class ProductArConfig {
     public void setFrameColor(String frameColor) { this.frameColor = frameColor; }
     public void setLensColor(String lensColor) { this.lensColor = lensColor; }
     public void setModelUrl(String modelUrl) { this.modelUrl = modelUrl; }
+    public void setModelScaleMode(String modelScaleMode) { this.modelScaleMode = modelScaleMode; }
+    public void setLegacyMaterials(Boolean legacyMaterials) { this.legacyMaterials = legacyMaterials; }
     public void setPositionX(BigDecimal positionX) { this.positionX = positionX; }
     public void setPositionY(BigDecimal positionY) { this.positionY = positionY; }
     public void setPositionZ(BigDecimal positionZ) { this.positionZ = positionZ; }
@@ -123,6 +133,8 @@ public class ProductArConfig {
         public Builder frameColor(String frameColor) { instance.frameColor = frameColor; return this; }
         public Builder lensColor(String lensColor) { instance.lensColor = lensColor; return this; }
         public Builder modelUrl(String modelUrl) { instance.modelUrl = modelUrl; return this; }
+        public Builder modelScaleMode(String modelScaleMode) { instance.modelScaleMode = modelScaleMode; return this; }
+        public Builder legacyMaterials(Boolean legacyMaterials) { instance.legacyMaterials = legacyMaterials; return this; }
         public Builder positionX(BigDecimal positionX) { instance.positionX = positionX; return this; }
         public Builder positionY(BigDecimal positionY) { instance.positionY = positionY; return this; }
         public Builder positionZ(BigDecimal positionZ) { instance.positionZ = positionZ; return this; }

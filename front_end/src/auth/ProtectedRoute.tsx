@@ -2,6 +2,8 @@ import { type ReactElement, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "./AuthProvider";
+import { isStaffRole } from "../services/api";
+import { Button } from "../components/ui/Button";
 
 export function ProtectedRoute({ children, message, adminOnly }: { children: ReactElement; message: string; adminOnly?: boolean }) {
   const { t } = useTranslation("common");
@@ -46,12 +48,19 @@ export function ProtectedRoute({ children, message, adminOnly }: { children: Rea
           <p className="text-slate-500 font-light leading-relaxed">
             {message}
           </p>
+          <Button
+            type="button"
+            className="mt-6"
+            onClick={() => { requireAuth({ path: nextPath, state: location.state }, message); }}
+          >
+            {t("auth.signIn")}
+          </Button>
         </div>
       </div>
     );
   }
 
-  if (adminOnly && user?.role !== "ADMIN") {
+  if (adminOnly && !isStaffRole(user?.role)) {
     return (
       <div className="flex-1 flex items-center justify-center px-5 py-24">
         <div className="max-w-xl w-full border border-red-200 bg-red-50/10 rounded-[32px] p-10 text-center shadow-xl backdrop-blur-md">

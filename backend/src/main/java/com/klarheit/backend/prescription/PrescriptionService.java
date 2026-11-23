@@ -31,6 +31,9 @@ public class PrescriptionService {
                 .axisOs(payload.axisOs())
                 .pd(payload.pd())
                 .userId(user.getId())
+                .savedToProfile(true)
+                .wearerName(payload.wearerName() != null && !payload.wearerName().isBlank() ? payload.wearerName().trim() : null)
+                .sourceNote(payload.sourceNote() != null && !payload.sourceNote().isBlank() ? payload.sourceNote().trim() : null)
                 .build());
 
         log.info("Prescription saved for user: {}", user.getEmail());
@@ -40,7 +43,9 @@ public class PrescriptionService {
     public PrescriptionResponseDTO getLatest(String email) {
         UserAccount user = userService.findByEmailIgnoreCase(normalizeEmail(email))
                 .orElseThrow(() -> new IllegalArgumentException("Authenticated user could not be found."));
-        Prescription prescription = prescriptionRepository.findTopByUserIdOrderByIdDesc(user.getId())
+        Prescription prescription = prescriptionRepository
+                .findTopByUserIdAndSavedToProfileTrueOrderByIdDesc(user.getId())
+                .or(() -> prescriptionRepository.findTopByUserIdOrderByIdDesc(user.getId()))
                 .orElseThrow(() -> new IllegalArgumentException("No prescription has been saved for this account."));
         return toResponse(prescription);
     }
@@ -58,7 +63,11 @@ public class PrescriptionService {
                 prescription.getCylOs(),
                 prescription.getAxisOd(),
                 prescription.getAxisOs(),
-                prescription.getPd());
+                prescription.getPd(),
+                prescription.isSavedToProfile(),
+                prescription.getWearerName(),
+                prescription.getSourceNote(),
+                prescription.getCreatedAt());
     }
 
     private String normalizeEmail(String email) {

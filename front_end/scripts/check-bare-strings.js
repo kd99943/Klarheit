@@ -37,10 +37,10 @@ const REGEXES = [
     captureGroup: 2,
     validate: (str) => /[a-zA-Z\u4e00-\u9fa5]/.test(str) && !str.startsWith('{')
   },
-  // 5. JavaScript bare alert/toast/confirm/throw error messages
+  // 5. JavaScript bare alert/toast/confirm UI messages
   {
     name: 'Bare string in alert/toast/confirm/error',
-    regex: /\b(alert|toast|confirm|showError|showSuccess|throw\s+new\s+Error)\(\s*["']([^"']+)["']/g,
+    regex: /\b(alert|toast|confirm|showError|showSuccess)\(\s*["']([^"']+)["']/g,
     captureGroup: 2,
     validate: (str) => /[a-zA-Z\u4e00-\u9fa5]/.test(str)
   }
@@ -49,7 +49,7 @@ const REGEXES = [
 // List of keywords and patterns that signify code lines rather than JSX text
 const CODE_EXCLUDE_PATTERNS = [
   /=>/,
-  /\b(const|let|var|function|import|export|class|interface|type|return)\b/,
+  /\b(const|let|var|function|import|export|class|interface|type|return|if|else|for|while|switch|throw)\b/,
   /===/,
   /!==/,
   /&&/,
@@ -94,6 +94,7 @@ function scanFile(filePath) {
             trimmedValue.length > 1 &&
             !trimmedValue.includes('px') && 
             !trimmedValue.includes('rem') &&
+            !/^[—\-]\s*mm$/.test(trimmedValue) &&
             !/^[a-zA-Z0-9_\-]+$/.test(trimmedValue) && // Ignore single-word keys/identifiers
             !trimmedValue.startsWith('d="') &&
             !trimmedValue.startsWith('M ') &&

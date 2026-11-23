@@ -37,6 +37,16 @@ function eyeCenter(
   return { x: (outer.x + inner.x) / 2, y: (outer.y + inner.y) / 2 };
 }
 
+/**
+ * Computes a normalized Euler AR transform and tracking confidence from a
+ * 478-point MediaPipe FaceLandmarker result (preferring iris centers 468/473,
+ * falling back to the midpoint of outer/inner eye corners 33/133 and 263/362).
+ *
+ * Used by `useFaceLandmarker` to gate face-tracking readiness/confidence and
+ * provide a lightweight 2D/Euler transform, while `ARTryOnCanvas` uses its
+ * 3D orthonormal basis solver (`calculateGlassesTransform3D`) for full Three.js
+ * mesh alignment and temple occlusion.
+ */
 export function calculateGlassesTransform(landmarks: FaceLandmark[]): ARTransform | null {
   if (![NOSE_BRIDGE, NOSE_TIP].every((index) => hasPoint(landmarks, index))) {
     return null;
@@ -55,7 +65,9 @@ export function calculateGlassesTransform(landmarks: FaceLandmark[]): ARTransfor
 
   const eyeCenterX = (leftEye.x + rightEye.x) / 2;
   const eyeCenterY = (leftEye.y + rightEye.y) / 2;
-  const roll = Math.atan2(rightEye.y - leftEye.y, rightEye.x - leftEye.x);
+  // Image y grows downward while the output is y-up (see `position` below and
+  // the 3D solver in ARTryOnCanvas), so flip dy to keep roll in the same frame.
+  const roll = Math.atan2(leftEye.y - rightEye.y, rightEye.x - leftEye.x);
   const pitch = clamp((noseTip.y - noseBridge.y) * 2.5, -0.45, 0.45);
   const yaw = clamp((noseBridge.x - eyeCenterX) * 3, -0.35, 0.35);
   const scale = clamp(eyeDistance * 7.2, 0.8, 2.4);

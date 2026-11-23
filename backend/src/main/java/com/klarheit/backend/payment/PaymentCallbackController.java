@@ -32,6 +32,9 @@ public class PaymentCallbackController {
 
     private final OrderService orderService;
 
+    @Value("${app.alipay.app-id:}")
+    private String alipayAppId;
+
     @Value("${app.alipay.public-key:}")
     private String alipayPublicKey;
 
@@ -44,7 +47,7 @@ public class PaymentCallbackController {
     @Value("${app.wechat.platform-public-key:}")
     private String wechatPlatformPublicKey;
 
-    @Value("${app.frontend-url:http://localhost:5173}")
+    @Value("${app.frontend-url:http://localhost:3000}")
     private String frontendUrl;
 
     public PaymentCallbackController(OrderService orderService) {
@@ -87,24 +90,42 @@ public class PaymentCallbackController {
             return ResponseEntity.badRequest().body("failure");
         }
 
-        if ("TRADE_SUCCESS".equals(tradeStatus) && outTradeNo != null) {
+        if (alipayAppId != null && !alipayAppId.isBlank()) {
+            String callbackAppId = params.get("app_id");
+            if (callbackAppId == null || !alipayAppId.trim().equals(callbackAppId.trim())) {
+                log.warn("Alipay callback rejected: app_id mismatch for order {} (expected={}, received={})",
+                        outTradeNo, alipayAppId.trim(), callbackAppId);
+                return ResponseEntity.badRequest().body("failure");
+            }
+        }
+
+        if (("TRADE_SUCCESS".equals(tradeStatus) || "TRADE_FINISHED".equals(tradeStatus)) && outTradeNo != null) {
             String txId = tradeNo != null ? tradeNo : "ALIPAY-TX-" + System.currentTimeMillis();
-            java.math.BigDecimal paidAmount = parseAmount(params.get("total_amount"));
+            java.math.BigDecimal paidAmount;
+            try {
+                paidAmount = parseRequiredAmount(params.get("total_amount"));
+            } catch (IllegalArgumentException e) {
+                log.warn("Alipay callback rejected for order {}: {}", outTradeNo, e.getMessage());
+                return ResponseEntity.badRequest().body("failure");
+            }
             orderService.completePayment(outTradeNo, txId, "ALIPAY", paidAmount);
         }
 
         return ResponseEntity.ok("success");
     }
 
-    private java.math.BigDecimal parseAmount(String raw) {
+    private java.math.BigDecimal parseRequiredAmount(String raw) {
         if (raw == null || raw.isBlank()) {
-            return null;
+            throw new IllegalArgumentException("Missing payment amount");
         }
         try {
-            return new java.math.BigDecimal(raw.trim());
+            java.math.BigDecimal amount = new java.math.BigDecimal(raw.trim());
+            if (amount.signum() <= 0 || amount.scale() > 2) {
+                throw new IllegalArgumentException("Invalid payment amount precision or sign");
+            }
+            return amount;
         } catch (NumberFormatException e) {
-            log.warn("Could not parse payment amount '{}'", raw);
-            return null;
+            throw new IllegalArgumentException("Invalid payment amount", e);
         }
     }
 
@@ -128,9 +149,9 @@ public class PaymentCallbackController {
                 String resultCode = extractXmlField(requestBody, "result_code");
                 String sign = extractXmlField(requestBody, "sign");
 
-                String verifyKey = (wechatApiKey != null && !wechatApiKey.isBlank()) ? wechatApiKey : callbackSecret;
-                if (verifyKey == null || verifyKey.isBlank()) {
-                    log.warn("WeChat XML callback rejected: no verification key configured");
+                String verifyKey = (wechatApiKey != null && !wechatApiKey.isBlank()) ? wechatApiKey : null;
+                if (verifyKey == null) {
+                    log.warn("WeChat XML callback rejected: WECHAT_API_KEY is not configured");
                     return ResponseEntity.ok("<xml><return_code><![CDATA[FAIL]]></return_code><return_msg><![CDATA[Invalid signature]]></return_msg></xml>");
                 }
                 if (!verifyHmacSignatureXml(requestBody, sign, verifyKey)) {
@@ -140,7 +161,13 @@ public class PaymentCallbackController {
 
                 if ("SUCCESS".equals(resultCode) && outTradeNo != null) {
                     String txId = transactionId != null ? transactionId : "WECHAT-TX-" + System.currentTimeMillis();
-                    orderService.completePayment(outTradeNo, txId, "WECHAT");
+                    String rawAmount = extractXmlField(requestBody, "total_amount");
+                    if (rawAmount != null && !rawAmount.isBlank()) {
+                        java.math.BigDecimal paidAmount = parseRequiredAmount(rawAmount);
+                        orderService.completePayment(outTradeNo, txId, "WECHAT", paidAmount);
+                    } else {
+                        orderService.completePayment(outTradeNo, txId, "WECHAT");
+                    }
                 }
                 return ResponseEntity.ok("<xml><return_code><![CDATA[SUCCESS]]></return_code><return_msg><![CDATA[OK]]></return_msg></xml>");
             } else {
@@ -339,182 +366,5 @@ public class PaymentCallbackController {
         } catch (NoSuchAlgorithmException | InvalidKeyException e) {
             throw new IllegalStateException("HMAC-SHA256 not available", e);
         }
-    }
-
-    @PostMapping("/mock-trigger")
-    @Profile({"local", "test"})
-    public ResponseEntity<String> mockTrigger(@RequestBody Map<String, String> request) {
-        String orderNumber = request.get("orderNumber");
-        String channel = request.get("channel");
-        if (orderNumber == null || channel == null) {
-            return ResponseEntity.badRequest().body("Missing orderNumber or channel");
-        }
-        String txId = "MOCK-" + channel + "-" + System.currentTimeMillis();
-        orderService.completePayment(orderNumber, txId, channel);
-        log.info("Successfully triggered mock payment for order: {} on channel: {}", orderNumber, channel);
-        return ResponseEntity.ok("success");
-    }
-
-    @GetMapping(value = "/mock-terminal", produces = MediaType.TEXT_HTML_VALUE)
-    @Profile({"local", "test"})
-    public ResponseEntity<String> mockTerminal() {
-        String html = """
-                <!DOCTYPE html>
-                <html lang="zh-CN">
-                <head>
-                    <meta charset="UTF-8">
-                    <title>Klarheit - Sandbox Cashier</title>
-                    <style>
-                        body {
-                            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-                            background-color: #f0f3f6;
-                            margin: 0;
-                            padding: 0;
-                            display: flex;
-                            justify-content: center;
-                            align-items: center;
-                            height: 100vh;
-                        }
-                        .card {
-                            background: rgba(255, 255, 255, 0.9);
-                            backdrop-filter: blur(10px);
-                            border-radius: 20px;
-                            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.08);
-                            border: 1px solid rgba(255, 255, 255, 0.18);
-                            padding: 40px;
-                            width: 420px;
-                            text-align: center;
-                        }
-                        .brand {
-                            font-size: 28px;
-                            font-weight: 700;
-                            color: #111827;
-                            margin-bottom: 5px;
-                            letter-spacing: 1px;
-                        }
-                        .subtitle {
-                            font-size: 14px;
-                            color: #6b7280;
-                            margin-bottom: 30px;
-                        }
-                        .info-row {
-                            display: flex;
-                            justify-content: space-between;
-                            margin: 15px 0;
-                            font-size: 15px;
-                            color: #374151;
-                        }
-                        .info-label {
-                            color: #9ca3af;
-                        }
-                        .info-value {
-                            font-weight: 600;
-                        }
-                        .amount {
-                            font-size: 32px;
-                            font-weight: 800;
-                            color: #059669;
-                            margin: 20px 0;
-                        }
-                        .btn {
-                            background-color: #10b981;
-                            color: white;
-                            border: none;
-                            padding: 14px 28px;
-                            font-size: 16px;
-                            font-weight: 600;
-                            border-radius: 12px;
-                            cursor: pointer;
-                            width: 100%%;
-                            transition: all 0.3s ease;
-                            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
-                        }
-                        .btn:hover {
-                            background-color: #059669;
-                            transform: translateY(-2px);
-                            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3);
-                        }
-                        .btn-cancel {
-                            background-color: transparent;
-                            color: #6b7280;
-                            border: 1px solid #d1d5db;
-                            margin-top: 12px;
-                            box-shadow: none;
-                        }
-                        .btn-cancel:hover {
-                            background-color: #f3f4f6;
-                            color: #374151;
-                            transform: none;
-                        }
-                        .divider {
-                            height: 1px;
-                            background-color: #e5e7eb;
-                            margin: 20px 0;
-                        }
-                    </style>
-                </head>
-                <body>
-                    <div class="card">
-                        <div class="brand">KLARHEIT</div>
-                        <div class="subtitle">Sandbox Payment Terminal</div>
-                        <div class="divider"></div>
-                        <div class="info-row">
-                            <span class="info-label">Order No.</span>
-                            <span class="info-value" id="orderNo"></span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">Merchant</span>
-                            <span class="info-value">Klarheit Eyewear</span>
-                        </div>
-                        <div class="divider"></div>
-                        <div class="info-row" style="margin-bottom: 5px;">
-                            <span class="info-label">Amount Due</span>
-                        </div>
-                        <div class="amount" id="orderAmount"></div>
-                        <button class="btn" onclick="submitPayment()">Confirm Payment (Mock)</button>
-                        <button class="btn btn-cancel" onclick="cancelPayment()">Cancel</button>
-                    </div>
-
-                    <script>
-                        const urlParams = new URLSearchParams(window.location.search);
-                        const orderNo = urlParams.get('out_trade_no') || 'N/A';
-                        const amount = urlParams.get('total_amount') || '0.00';
-
-                        document.getElementById('orderNo').innerText = orderNo;
-                        document.getElementById('orderAmount').innerText = '¥' + amount;
-
-                        function submitPayment() {
-                            fetch('/api/v1/payments/callback/mock-trigger', {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json'
-                                },
-                                body: JSON.stringify({
-                                    orderNumber: orderNo,
-                                    channel: 'ALIPAY'
-                                })
-                            })
-                            .then(res => {
-                                if (res.ok) {
-                                    alert('Payment successful! Redirecting to your account.');
-                                    window.location.href = '%FRONTEND_URL%/my-account';
-                                } else {
-                                    alert('Payment confirmation failed. Please retry.');
-                                }
-                            })
-                            .catch(err => {
-                                console.error(err);
-                                alert('Network error');
-                            });
-                        }
-
-                        function cancelPayment() {
-                            window.location.href = '%FRONTEND_URL%/checkout';
-                        }
-                    </script>
-                </body>
-                </html>
-                """.replace("%FRONTEND_URL%", frontendUrl);
-        return ResponseEntity.ok(html);
     }
 }

@@ -1,3 +1,6 @@
+import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+
 interface FaceCalibrationGuideProps {
   status: string;
   className?: string;
@@ -5,19 +8,40 @@ interface FaceCalibrationGuideProps {
 
 /**
  * Soft face oval guide shown while camera is live but face isn't locked.
- * Reduces "where do I put my face" friction on first open.
+ * Debounces rapid status oscillation so the single guidance pill stays calm and readable.
  */
 export function FaceCalibrationGuide({ status, className }: FaceCalibrationGuideProps) {
+  const { t } = useTranslation("ar-studio");
+  const [stableStatus, setStableStatus] = useState(status);
+
+  useEffect(() => {
+    if (status === "tracking" || status === "initializing") {
+      setStableStatus(status);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setStableStatus(status);
+    }, 450);
+    return () => window.clearTimeout(timer);
+  }, [status]);
+
   if (status === "tracking") return null;
 
   const isDenied =
     status === "permission-denied" || status === "unsupported" || status === "error";
 
+  const guideMessage =
+    stableStatus === "initializing"
+      ? t("guide.preparing")
+      : stableStatus === "no-face"
+        ? t("guide.alignFace")
+        : t("guide.holdSteady");
+
   return (
     <div
       className={
         className ??
-        "absolute inset-0 z-20 flex items-center justify-center pointer-events-none"
+        "absolute inset-0 z-20 flex items-center justify-center pb-24 sm:pb-28 pointer-events-none"
       }
       data-testid="face-calibration-guide"
     >
@@ -61,12 +85,12 @@ export function FaceCalibrationGuide({ status, className }: FaceCalibrationGuide
           />
         </svg>
         {!isDenied && (
-          <div className="absolute left-1/2 -translate-x-1/2 bottom-[-2rem] whitespace-nowrap text-[10px] uppercase tracking-widest font-bold text-white/90 bg-slate-900/70 px-3 py-1.5 rounded-full backdrop-blur">
-            {status === "initializing"
-              ? "准备中…"
-              : status === "no-face"
-                ? "将面部对准虚线框"
-                : "请保持稳定"}
+          <div
+            role="status"
+            aria-live="polite"
+            className="absolute left-1/2 -translate-x-1/2 bottom-[-2.25rem] whitespace-nowrap text-xs font-medium text-white bg-slate-900/80 px-4 py-1.5 rounded-full backdrop-blur shadow-md"
+          >
+            {guideMessage}
           </div>
         )}
       </div>

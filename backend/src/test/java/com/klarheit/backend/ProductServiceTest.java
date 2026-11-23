@@ -8,12 +8,14 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.klarheit.backend.product.Product;
+import com.klarheit.backend.product.ProductArConfig;
 import com.klarheit.backend.product.ProductRepository;
 import com.klarheit.backend.product.ProductService;
 import com.klarheit.backend.product.dto.ProductRequestDTO;
 import com.klarheit.backend.product.dto.ProductResponseDTO;
 import java.math.BigDecimal;
 import java.util.Optional;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -28,6 +30,25 @@ class ProductServiceTest {
 
     @InjectMocks
     private ProductService productService;
+
+    @Test
+    void catalogPreservesModelAssetMetadata() throws Exception {
+        ProductArConfig ar = ProductArConfig.builder()
+                .finishId("titanium").modelUrl("/models/measured.glb")
+                .modelScaleMode("real-meters").legacyMaterials(false)
+                .positionX(BigDecimal.ZERO).positionY(BigDecimal.ZERO).positionZ(BigDecimal.ZERO)
+                .rotationX(BigDecimal.ZERO).rotationY(BigDecimal.ZERO).rotationZ(BigDecimal.ZERO)
+                .scale(BigDecimal.ONE).build();
+        Product product = Product.builder().id(1L).name("AERO X1").arConfigs(List.of(ar)).build();
+        when(productRepository.findAll()).thenReturn(List.of(product));
+        var config = productService.getCatalog().getFirst().arConfigs().getFirst();
+        var json = new com.fasterxml.jackson.databind.ObjectMapper().valueToTree(config);
+        assertThat(json.get("modelUrl").asText()).isEqualTo("/models/measured.glb");
+        assertThat(json.get("modelScaleMode").asText()).isEqualTo("real-meters");
+        assertThat(json.get("legacyMaterials").asBoolean()).isFalse();
+        assertThat(ProductArConfig.builder().build().getModelScaleMode()).isEqualTo("normalized");
+        assertThat(ProductArConfig.builder().build().getLegacyMaterials()).isNull();
+    }
 
     @Test
     void createProduct_createsAndSavesProduct() {

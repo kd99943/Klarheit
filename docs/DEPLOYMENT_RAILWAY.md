@@ -226,13 +226,15 @@ CORS_ALLOWED_ORIGINS=*
 
 ---
 
-## 部署后验证清单
+## 部署后验证与应急止损清单
 
 - [ ] 后端 `https://<后端域名>/actuator/health` 返回 `{"status":"UP"}`
+- [ ] 生产环境 `/swagger-ui/index.html` 与 `/v3/api-docs` 对未登录访客返回 401/403（仅管理员角色可访问）
 - [ ] 前端 `https://<前端域名>/env-config.js` 输出正确的后端地址
-- [ ] 前端页面能正常加载（非 Railway 错误页）
-- [ ] 前端能正常调用后端 API（如产品列表、用户注册）
-- [ ] 后端 CORS 配置包含前端域名
+- [ ] 前端页面能正常加载（非 Railway 错误页），Nginx CSP 已放行 GA4（若配置 `VITE_GA_MEASUREMENT_ID`）
+- [ ] 前端能正常调用后端 API（如产品列表、用户注册、`/api/v1/system/checkout-status`）
+- [ ] 后端 `CORS_ALLOWED_ORIGINS` 已锁定为正式前端域名（严禁在上线后保留 `*`）
+- [ ] 演练管理台「暂停新单」应急开关：暂停后新订单被拒（503），已付款与在途订单查询、回调对账及售后工单仍正常运行
 
 ---
 

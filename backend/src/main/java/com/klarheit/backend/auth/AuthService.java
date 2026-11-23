@@ -81,6 +81,21 @@ public class AuthService implements UserService {
         log.info("Password reset via SMS for phone: {}", phone);
     }
 
+    public void changePassword(String email, String currentPassword, String newPassword) {
+        String normalizedEmail = normalizeEmail(email);
+        UserAccount user = userAccountRepository.findByEmailIgnoreCase(normalizedEmail)
+                .orElseThrow(() -> new IllegalArgumentException("Authenticated user could not be found."));
+        if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+            throw new IllegalArgumentException("当前密码不正确");
+        }
+        if (passwordEncoder.matches(newPassword, user.getPasswordHash())) {
+            throw new IllegalArgumentException("新密码不能与当前密码相同");
+        }
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userAccountRepository.save(user);
+        log.info("Password changed by authenticated user: {}", normalizedEmail);
+    }
+
     private UserProfileDTO toUserProfile(UserAccount user) {
         return new UserProfileDTO(user.getId(), user.getEmail(), user.getFirstName(), user.getLastName(), user.getPhone(), user.isPhoneVerified(), user.getRole());
     }

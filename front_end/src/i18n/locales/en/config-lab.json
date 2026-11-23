@@ -1,7 +1,7 @@
 {
-  "eyebrow": "Swiss Precision Customization Interface",
+  "eyebrow": "Custom Optical Configurator",
   "title": "Config Lab",
-  "description": "Tune prescription values, select the surface stack, and review the optical build before moving to secure checkout.",
+  "description": "Enter or load your prescription, select one base lens and optional coatings, and verify wearer & total pricing before checkout.",
   "engine": "Engine",
   "step1.eyebrow": "Step 01",
   "step1.title": "Optometric Prescription",
@@ -25,7 +25,12 @@
   "steps.review.label": "Review",
   "steps.review.description": "Summary before order",
   "summary.frame": "Frame",
+  "summary.changeFrame": "Change Frame",
   "summary.finish": "Frame Color/Finish",
+  "summary.size": "Frame Size",
+  "selectReplacementFrame": "Choose an available replacement frame...",
+  "snapshotDifferentFrame": "Reference photo from original frame",
+  "frameNotSelectedYet": "No replacement frame chosen yet",
   "summary.selectedOptions": "Selected Options",
   "summary.optionCount": "{{count}} option",
   "summary.optionCount_plural": "{{count}} options",
@@ -33,18 +38,82 @@
   "summary.totalValue": "Total Value",
   "summary.premium": "PREMIUM",
   "nextStep": "Next Step",
-  "initializeOrder": "Initialize Order",
+  "initializeOrder": "Confirm & Proceed to Checkout",
+  "addToCart": "Add to Cart",
+  "saveToCart": "Save Cart Configuration",
+  "clearSnapshot": "Clear Try-On Photo",
+  "modeHasRx": "I have my prescription",
+  "modeNeedHelp": "Need an Rx example",
+  "loadSavedRx": "Load Saved Prescription",
+  "savedRxLoaded": "Loaded your saved prescription. Please confirm it matches the wearer for this pair.",
+  "noSavedRx": "No saved prescription found on this account yet.",
+  "wearerNameLabel": "Wearer Name (optional, helpful when ordering for family)",
+  "wearerNamePlaceholder": "Defaults to account holder",
+  "saveRxToProfile": "Save this confirmed prescription to my profile for future orders",
+  "sampleTitle": "Fictional Prescription Example (for format reference only)",
+  "sampleDesc": "Nearsightedness uses minus (e.g. -2.50); farsightedness uses plus (e.g. +1.50). If you have no astigmatism, enter 0 for CYL and AXIS. Typical adult PD is 54–70 mm.",
+  "sampleValues": "Example: OD (Right) SPH -2.50 / CYL -0.50 / AXIS 180; OS (Left) SPH -2.25 / CYL 0.00 / AXIS 0; PD 63.0 mm",
+  "fillExampleHint": "If your PD is missing or your exam sheet is unclear, consult an optometrist or contact our optician support before ordering.",
+  "fieldLabels": {
+    "sphOd": "Right Eye SPH OD (minus for myopia, e.g. -2.50)",
+    "sphOs": "Left Eye SPH OS (minus for myopia, e.g. -2.25)",
+    "cylOd": "Right Eye CYL OD (enter 0 if none)",
+    "cylOs": "Left Eye CYL OS (enter 0 if none)",
+    "axisOd": "Right Eye AXIS OD (0–180, 0 if no CYL)",
+    "axisOs": "Left Eye AXIS OS (0–180, 0 if no CYL)",
+    "pd": "Pupillary Distance PD (mm, e.g. 63.0)"
+  },
+  "validation": {
+    "required": "{{field}} is required",
+    "invalidNumber": "{{field}} must be a valid number",
+    "outOfRange": "{{field}} must be between {{min}} and {{max}}",
+    "invalidStep": "{{field}} must be in 0.25 increments (e.g. -2.00, -2.25)"
+  },
+  "recommendedIndex": "Based on your max sphere |{{maxSph}}|, we recommend refractive index {{index}} or higher for optimal thinness.",
+  "complexRxNotice": "Note: Higher power/astigmatism detected. Our optician will review feasibility after payment before starting production.",
+  "productUnavailableWarn": "The originally selected frame is unavailable or discontinued. Your draft is preserved — please pick another frame.",
+  "baseLensRequiredHint": "Choose exactly 1 base lens per pair; coatings are optional add-ons.",
+  "prevStep": "Previous",
+  "rightEyeGroup": "Right Eye (OD)",
+  "leftEyeGroup": "Left Eye (OS)",
+  "pdGroup": "Pupillary Distance (PD)",
+  "seeFieldExample": "See example",
+  "samplePartOdSph": "OD SPH -2.50",
+  "samplePartOdCyl": "OD CYL -0.50",
+  "samplePartOdAxis": "OD AXIS 180",
+  "samplePartOsSph": "OS SPH -2.25",
+  "samplePartOsCyl": "OS CYL 0.00",
+  "samplePartOsAxis": "OS AXIS 0",
+  "samplePartPd": "PD 63.0 mm",
+  "priceDeltaBanner": "Updated ({{delta}}) · Est. total {{total}}",
+  "mobileEstimatedTotal": "Est. {{total}}",
+  "step3.wearerAndSaveTitle": "Wearer & Prescription Save Settings",
+  "step3.wearerDefault": "Account holder (default)",
+  "step3.saveStatusYes": "Save confirmed Rx to profile",
+  "step3.saveStatusNo": "Use for this order only",
   "lens": {
+    "STANDARD_156": {
+      "label": "Standard Index Lenses (1.56)",
+      "description": "Included optical resin lenses suitable for prescriptions up to ±3.00."
+    },
+    "THIN_161": {
+      "label": "Thin Index Lenses (1.61)",
+      "description": "Lighter and slimmer 1.61 lenses recommended for ±3.00 to ±5.00."
+    },
+    "ULTRATHIN_167": {
+      "label": "Ultra-Thin Index Lenses (1.67)",
+      "description": "High-index 1.67 lenses recommended for ±5.00 to ±7.00."
+    },
     "HIGH_INDEX_174": {
-      "label": "Custom Lenses (High-Index)",
-      "description": "Thin 1.74 index lenses for stronger prescriptions."
+      "label": "Ultra-High Index Lenses (1.74)",
+      "description": "Ultra-thin 1.74 index lenses for strong prescriptions (> ±7.00)."
     },
     "AR_ONYX": {
       "label": "Onyx AR Coating",
       "description": "Premium anti-reflective coating for glare reduction."
     },
     "HEV_BLUE": {
-      "label": "HEV Filter",
+      "label": "HEV Blue-Light Filter",
       "description": "Blue light filtering treatment for daily screen use."
     }
   }

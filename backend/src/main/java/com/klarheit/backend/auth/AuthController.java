@@ -1,6 +1,7 @@
 package com.klarheit.backend.auth;
 
 import com.klarheit.backend.auth.dto.AuthResponseDTO;
+import com.klarheit.backend.auth.dto.ChangePasswordRequestDTO;
 import com.klarheit.backend.auth.dto.LoginRequestDTO;
 import com.klarheit.backend.auth.dto.RegisterRequestDTO;
 import com.klarheit.backend.auth.dto.ResetPasswordRequestDTO;
@@ -71,6 +72,13 @@ public class AuthController {
             throw new IllegalArgumentException("验证码错误");
         }
         authService.resetPassword(request.phone(), request.newPassword());
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/change-password")
+    public ResponseEntity<Void> changePassword(@Valid @RequestBody ChangePasswordRequestDTO request,
+                                               Authentication authentication) {
+        authService.changePassword(authentication.getName(), request.currentPassword(), request.newPassword());
         return ResponseEntity.ok().build();
     }
 

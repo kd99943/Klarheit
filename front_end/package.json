@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
+    "check-i18n": "node scripts/check-bare-strings.js",
     "test": "vitest run",
     "test:watch": "vitest"
   },

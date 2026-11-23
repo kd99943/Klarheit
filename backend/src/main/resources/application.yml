@@ -45,7 +45,8 @@ app:
     # minted for a different audience / issuer cannot be replayed here.
     issuer: ${APP_JWT_ISSUER:klarheit}
     audience: ${APP_JWT_AUDIENCE:klarheit-web}
-  frontend-url: ${APP_FRONTEND_URL:http://localhost:5173}
+  frontend-url: ${APP_FRONTEND_URL:http://localhost:3000}
+  backend-base-url: ${APP_BACKEND_BASE_URL:http://localhost:8081}
   resend:
     api-key: ${RESEND_API_KEY:}
     from-email: ${RESEND_FROM_EMAIL:orders@klarheit.com}
@@ -53,13 +54,16 @@ app:
     app-id: ${ALIPAY_APP_ID:}
     private-key: ${ALIPAY_PRIVATE_KEY:}
     public-key: ${ALIPAY_PUBLIC_KEY:}
-    gateway-url: ${ALIPAY_GATEWAY_URL:https://openapi-sandbox.dl.alipaydev.com/gateway.do}
+    gateway-url: ${ALIPAY_GATEWAY_URL:${ALIPAY_GATEWAY:https://openapi-sandbox.dl.alipaydev.com/gateway.do}}
+    notify-url: ${ALIPAY_NOTIFY_URL:}
+    return-url: ${ALIPAY_RETURN_URL:}
   wechat:
     app-id: ${WECHAT_APP_ID:}
     mch-id: ${WECHAT_MCH_ID:}
     api-key: ${WECHAT_API_KEY:}
     platform-public-key: ${WECHAT_PLATFORM_PUBLIC_KEY:}
   payment:
+    mock-enabled: ${PAYMENT_MOCK_ENABLED:false}
     callback-secret: ${PAYMENT_CALLBACK_SECRET:}
     webhook-ip-whitelist: ${PAYMENT_WEBHOOK_IP_WHITELIST:}
     # Trust X-Forwarded-For / X-Real-IP headers on webhook callbacks. Enable only
@@ -94,4 +98,3 @@ management:
     # Anonymous callers get aggregate UP/DOWN only.
     health:
       show-details: when_authorized
-

@@ -1,7 +1,7 @@
 {
-  "eyebrow": "瑞士精密定制界面",
+  "eyebrow": "定制配镜工坊",
   "title": "配镜向导",
-  "description": "调校处方参数、选择镜片与镀膜方案，在进入安全结算前审查您的配镜配置。",
+  "description": "录入或载入验光处方、选择一款基础镜片与可选镀膜，核对佩戴人与费用明细后提交结算。",
   "engine": "引擎",
   "step1.eyebrow": "步骤 01",
   "step1.title": "验光处方",
@@ -25,7 +25,12 @@
   "steps.review.label": "审查",
   "steps.review.description": "下单前摘要",
   "summary.frame": "镜架",
+  "summary.changeFrame": "更换其他镜架",
   "summary.finish": "镜架颜色/材质",
+  "summary.size": "镜架尺码",
+  "selectReplacementFrame": "请手动选择可替换的现货镜框...",
+  "snapshotDifferentFrame": "此试戴图为原选镜框参考照",
+  "frameNotSelectedYet": "尚未选择替换镜框",
   "summary.selectedOptions": "已选镜片选项",
   "summary.optionCount": "{{count}} 个选项",
   "summary.optionCount_plural": "{{count}} 个选项",
@@ -33,19 +38,83 @@
   "summary.totalValue": "总金额",
   "summary.premium": "高级",
   "nextStep": "下一步",
-  "initializeOrder": "确认订单",
+  "initializeOrder": "核对无误，前往结算",
+  "addToCart": "加入购物车",
+  "saveToCart": "保存购物车配置",
+  "clearSnapshot": "清除试戴截图",
+  "modeHasRx": "我已有验光处方",
+  "modeNeedHelp": "需要验光单示例",
+  "loadSavedRx": "载入上次保存的处方",
+  "savedRxLoaded": "已载入您账户中保存的处方数据，请核对是否与本次佩戴人一致。",
+  "noSavedRx": "账户暂无已保存的处方记录。",
+  "wearerNameLabel": "佩戴人姓名（如帮家人配镜可注明）",
+  "wearerNamePlaceholder": "默认本人佩戴，可填姓名或称呼",
+  "saveRxToProfile": "将本次确认的处方长期保存到我的档案以便下次复用",
+  "sampleTitle": "虚构验光单填写示例（仅供参考，请勿直接照抄）",
+  "sampleDesc": "近视填负号（如 -2.50），远视填正号（如 +1.50）。若无散光，CYL 与 AXIS 均填 0；瞳距 PD 通常在 54–70 mm 之间。",
+  "sampleValues": "示例：右眼(OD) SPH -2.50 / CYL -0.50 / AXIS 180；左眼(OS) SPH -2.25 / CYL 0.00 / AXIS 0；瞳距 PD 63.0 mm",
+  "fillExampleHint": "如缺少瞳距或看不懂处方，请先联系专业验光机构确认，或下单前咨询客服人工核对。",
+  "fieldLabels": {
+    "sphOd": "右眼 球镜 SPH OD（近视填负，如 -2.50）",
+    "sphOs": "左眼 球镜 SPH OS（近视填负，如 -2.25）",
+    "cylOd": "右眼 柱镜 CYL OD（无散光填 0）",
+    "cylOs": "左眼 柱镜 CYL OS（无散光填 0）",
+    "axisOd": "右眼 轴位 AXIS OD（0–180，无散光填 0）",
+    "axisOs": "左眼 轴位 AXIS OS（0–180，无散光填 0）",
+    "pd": "双眼瞳距 PD（单位 mm，如 63.0）"
+  },
+  "validation": {
+    "required": "请填写{{field}}",
+    "invalidNumber": "{{field}}必须为有效数字",
+    "outOfRange": "{{field}}须在 {{min}} 至 {{max}} 之间",
+    "invalidStep": "{{field}}须为 0.25 的倍数（例如 -2.00、-2.25）"
+  },
+  "recommendedIndex": "根据您录入的最大球镜度数 |{{maxSph}}|，建议选择折射率 {{index}} 及以上镜片，兼顾轻薄与清晰度。",
+  "complexRxNotice": "提示：您录入的度数/散光较高，订单支付后将优先由验配师逐单人工复核可加工性，确认无误后再开工。",
+  "productUnavailableWarn": "原选镜框已下架或暂不可售，已为您保留草稿，请重新选择可用镜框。",
+  "baseLensRequiredHint": "每副眼镜必选且仅选 1 款基础镜片，可按需叠加镀膜。",
+  "prevStep": "上一步",
+  "rightEyeGroup": "右眼 (OD)",
+  "leftEyeGroup": "左眼 (OS)",
+  "pdGroup": "双眼瞳距 (PD)",
+  "seeFieldExample": "看示例",
+  "samplePartOdSph": "右眼 SPH -2.50",
+  "samplePartOdCyl": "右眼 CYL -0.50",
+  "samplePartOdAxis": "右眼 AXIS 180",
+  "samplePartOsSph": "左眼 SPH -2.25",
+  "samplePartOsCyl": "左眼 CYL 0.00",
+  "samplePartOsAxis": "左眼 AXIS 0",
+  "samplePartPd": "瞳距 PD 63.0 mm",
+  "priceDeltaBanner": "配置已更新（{{delta}}）· 预计合计 {{total}}",
+  "mobileEstimatedTotal": "预计 {{total}}",
+  "step3.wearerAndSaveTitle": "佩戴人与处方保存确认",
+  "step3.wearerDefault": "默认本人佩戴",
+  "step3.saveStatusYes": "将保存到我的处方档案",
+  "step3.saveStatusNo": "仅用于本次订单，不写入档案",
   "lens": {
+    "STANDARD_156": {
+      "label": "1.56 标准折射率镜片（含镜片）",
+      "description": "光学树脂基础片，适合 ±3.00 以内的日常度数。"
+    },
+    "THIN_161": {
+      "label": "1.61 轻薄折射率镜片",
+      "description": "更轻更薄，推荐 ±3.00 至 ±5.00 度数使用。"
+    },
+    "ULTRATHIN_167": {
+      "label": "1.67 超薄折射率镜片",
+      "description": "高折射率减薄边缘，推荐 ±5.00 至 ±7.00 度数使用。"
+    },
     "HIGH_INDEX_174": {
-      "label": "定制高折射率镜片 (1.74)",
-      "description": "超薄 1.74 折射率镜片，适合深度近视/远视。"
+      "label": "1.74 极薄高折射率镜片",
+      "description": "超薄 1.74 折射率镜片，适合高度近视/远视（> ±7.00）。"
     },
     "AR_ONYX": {
       "label": "黑玛瑙防反射镀膜",
       "description": "高级减反射多层膜，有效过滤反射光及眩光。"
     },
     "HEV_BLUE": {
-      "label": "防蓝光护目镜片",
-      "description": "吸收高能有害蓝光，适合日常面对屏幕使用。"
+      "label": "防蓝光镀膜",
+      "description": "减少屏幕高能蓝光刺激，适合日常办公使用。"
     }
   }
 }

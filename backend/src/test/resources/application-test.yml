@@ -13,6 +13,8 @@ spring:
     locations: classpath:db/migration
 
 app:
+  payment:
+    mock-enabled: true
   jwt:
     secret: ${APP_JWT_SECRET:test-secret-key-change-me-minimum-32-characters-long}
     expiration-millis: 86400000

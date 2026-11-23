@@ -1,0 +1,48 @@
+services:
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: klarheit
+      MYSQL_USER: klarheit
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - dbdata:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:mysql://db:3306/klarheit?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=utf8
+      DB_USERNAME: klarheit
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+      APP_JWT_SECRET: ${APP_JWT_SECRET}
+      SPRING_PROFILES_ACTIVE: prod
+      JPA_DDL_AUTO: validate
+      FLYWAY_ENABLED: "true"
+      SERVER_PORT: "8080"
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+      APP_FRONTEND_URL: ${APP_FRONTEND_URL:-http://localhost:3000}
+      APP_BACKEND_BASE_URL: ${APP_BACKEND_BASE_URL:-http://localhost:8080}
+      RATE_LIMIT_TRUST_FORWARDED_FOR: "true"
+      PAYMENT_MOCK_ENABLED: "false"
+    ports:
+      - "8080:8080"
+
+volumes:
+  dbdata:

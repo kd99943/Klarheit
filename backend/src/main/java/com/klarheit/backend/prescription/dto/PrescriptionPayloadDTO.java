@@ -4,7 +4,7 @@ import com.klarheit.backend.prescription.validation.ValidDiopter;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 
 public record PrescriptionPayloadDTO(
@@ -14,5 +14,19 @@ public record PrescriptionPayloadDTO(
         @NotNull @DecimalMin("-10.00") @DecimalMax("+10.00") @ValidDiopter BigDecimal cylOs,
         @NotNull @DecimalMin("0") @DecimalMax("180") Integer axisOd,
         @NotNull @DecimalMin("0") @DecimalMax("180") Integer axisOs,
-        @NotNull @Positive @DecimalMax("80.00") BigDecimal pd
-) {}
+        @NotNull @DecimalMin("40.00") @DecimalMax("80.00") BigDecimal pd,
+        @Size(max = 120) String wearerName,
+        @Size(max = 120) String sourceNote
+) {
+    public PrescriptionPayloadDTO(
+            BigDecimal sphOd,
+            BigDecimal sphOs,
+            BigDecimal cylOd,
+            BigDecimal cylOs,
+            Integer axisOd,
+            Integer axisOs,
+            BigDecimal pd
+    ) {
+        this(sphOd, sphOs, cylOd, cylOs, axisOd, axisOs, pd, null, null);
+    }
+}

@@ -22,8 +22,21 @@
   "timeline.shipped": "Shipped",
   "timeline.shippedDesc": "Your finished glasses will be shipped with tracking information.",
   "viewMyOrders": "View My Orders",
+  "viewOrderDetail": "Open Order Details & Status",
   "continueShopping": "Continue Shopping",
-  "lensLabels.HIGH_INDEX_174": "Custom Lenses (High-Index)",
+  "loadingOrder": "Restoring live order details from server...",
+  "refreshStatus": "Refresh Payment Status",
+  "statusConfirming": "Confirming payment — click Refresh shortly to verify gateway status",
+  "statusPaid": "Payment Confirmed",
+  "deliveryNote": "Ships within 7–10 business days after optician review (~10 business days delivery)",
+  "lensLabels.STANDARD_156": "Standard Index Lenses (1.56)",
+  "lensLabels.THIN_161": "Thin Index Lenses (1.61)",
+  "lensLabels.ULTRATHIN_167": "Ultra-Thin Index Lenses (1.67)",
+  "lensLabels.HIGH_INDEX_174": "Ultra-High Index Lenses (1.74)",
   "lensLabels.AR_ONYX": "Onyx AR Coating",
-  "lensLabels.HEV_BLUE": "HEV Filter"
+  "lensLabels.HEV_BLUE": "HEV Blue-Light Filter",
+  "statusUnknownTitle": "Unable to Confirm Order Status · Retry Query",
+  "statusUnknownDesc": "We could not reach the order service right now. Your order number is preserved below — please retry instead of placing a duplicate order.",
+  "retryQuery": "Retry Query",
+  "statusUnknownLabel": "Status Unconfirmed"
 }

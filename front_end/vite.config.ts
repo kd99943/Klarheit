@@ -11,6 +11,7 @@ export default defineConfig({
       '@': path.resolve(__dirname, '.'),
     },
   },
+  worker: { format: 'es' },
   server: {
     hmr: process.env.DISABLE_HMR !== 'true',
     // 开发环境代理：将 /api 请求转发到后端 Spring Boot 服务。

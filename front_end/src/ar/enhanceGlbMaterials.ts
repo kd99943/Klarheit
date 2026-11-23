@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { buildEnhancedMaterials } from "./frameTextures";
+import { buildEnhancedMaterials, scaleMaterialUnits } from "./frameTextures";
 
 let cached: ReturnType<typeof buildEnhancedMaterials> | null = null;
 
@@ -10,10 +10,12 @@ function getMats() {
 
 /**
  * Upgrade GLB materials in-place by name (set at export time).
- * Gives metal brushed maps, acetate polish, lens AR coat without embedding
- * textures in the GLB (Node exporter limitation).
+ * Rebuilds legacy materials while preserving authored PBR maps and opt-out markers.
  */
-export function enhanceGlbMaterials(root: THREE.Object3D) {
+export function enhanceGlbMaterials(
+  root: THREE.Object3D,
+  options: { legacyMaterials?: boolean; modelScaleMode?: string; lensCenterDistanceMm?: number; frameColor?: string } = {}
+) {
   let mats: ReturnType<typeof buildEnhancedMaterials>;
   try {
     mats = getMats();
@@ -22,11 +24,25 @@ export function enhanceGlbMaterials(root: THREE.Object3D) {
     return;
   }
 
+  const replacements = new Map<THREE.Material, THREE.Material>();
   root.traverse((obj) => {
     if (!(obj instanceof THREE.Mesh)) return;
     const apply = (mat: THREE.Material | undefined) => {
-      if (!mat) return;
+      if (!mat) return mat;
+      if (replacements.has(mat)) return replacements.get(mat)!;
       const name = (mat.name || "").toLowerCase();
+      // An authored primary material explicitly opts into color variants; keep its maps and PBR settings.
+      if ((name === "frame-primary" || name === "pbr-frame-primary") && options.frameColor && mat instanceof THREE.MeshStandardMaterial) {
+        const next = mat.clone();
+        next.color.set(options.frameColor);
+        replacements.set(mat, next);
+        return next;
+      }
+      if (name.startsWith("pbr-") || mat.userData.keepMaterial === true ||
+          Object.values(mat).some((value) => value instanceof THREE.Texture) ||
+          (mat instanceof THREE.MeshPhysicalMaterial && mat.transmission > 0 && !options.legacyMaterials)) {
+        return mat;
+      }
       let next: THREE.MeshPhysicalMaterial | null = null;
 
       if (name.includes("titanium") || name.includes("steel")) {
@@ -35,6 +51,10 @@ export function enhanceGlbMaterials(root: THREE.Object3D) {
             ? mat.color.clone()
             : new THREE.Color("#9aa1aa");
         next = mats.titanium(color.getHex());
+      } else if (name.includes("amber-acetate")) {
+        const baseHex =
+          mat instanceof THREE.MeshStandardMaterial ? mat.color.getHex() : 0xb46a28;
+        next = mats.amberAcetate(baseHex);
       } else if (name.includes("acetate-black") || name === "acetate") {
         next = mats.blackAcetate(
           mat instanceof THREE.MeshStandardMaterial
@@ -50,11 +70,9 @@ export function enhanceGlbMaterials(root: THREE.Object3D) {
             : 0x1a2430
         );
       } else if (name.includes("optical") || name.includes("lens")) {
-        next = mats.opticalLens(
-          mat instanceof THREE.MeshStandardMaterial
-            ? mat.color.getHex()
-            : 0xdce8f2
-        );
+        next = mats.opticalLens();
+      } else if (name.includes("silicone")) {
+        next = mats.silicone();
       } else if (name.includes("gold")) {
         next = mats.gold();
       } else if (name.includes("tortoise")) {
@@ -62,13 +80,26 @@ export function enhanceGlbMaterials(root: THREE.Object3D) {
       }
 
       if (next) {
+        if (options.legacyMaterials && options.frameColor &&
+            (name.includes("titanium") || name.includes("steel") || name.includes("amber-acetate") || name.includes("acetate-black") || name === "acetate" || name.includes("crystal"))) {
+          next.color.set(options.frameColor);
+          if (name.includes("amber-acetate")) {
+            next.attenuationColor.set(options.frameColor);
+          }
+        }
+        next.name = mat.name;
         next.side = mat.side;
-        obj.material = next;
-        mat.dispose();
+        const factor = options.modelScaleMode === "real-meters"
+          ? 0.001 / (0.48 / 71)
+          : 71 / (options.lensCenterDistanceMm ?? 71);
+        scaleMaterialUnits(next, factor);
+        replacements.set(mat, next);
+        return next;
       }
+      return mat;
     };
 
-    if (Array.isArray(obj.material)) obj.material.forEach(apply);
-    else apply(obj.material);
+    obj.material = Array.isArray(obj.material) ? obj.material.map(apply) : apply(obj.material);
   });
+  replacements.forEach((_next, original) => original.dispose());
 }

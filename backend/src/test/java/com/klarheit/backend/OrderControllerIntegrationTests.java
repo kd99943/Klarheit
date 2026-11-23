@@ -22,8 +22,26 @@ class OrderControllerIntegrationTests extends BaseIntegrationTest {
     @Autowired
     private OrderRepository orderRepository;
 
+    @Autowired
+    private com.klarheit.backend.product.ProductSkuRepository productSkuRepository;
+
     @Test
     void checkoutCreatesOrderAndPersistsDetails() throws Exception {
+        // Ensure a physically stocktaken, sellable SKU exists for product 1 in this test tx (P0-02)
+        var skus = productSkuRepository.findByProductIdOrderByIdAsc(1L);
+        String chosenFinish = "titanium";
+        String chosenSize = "54-17-140";
+        if (!skus.isEmpty()) {
+            var first = skus.get(0);
+            first.setOnHandQty(10);
+            first.setCommittedQty(0);
+            first.setSalesStatus(com.klarheit.backend.product.ProductSalesStatus.AVAILABLE);
+            first.setStocktakeVerified(true);
+            productSkuRepository.save(first);
+            chosenFinish = first.getFinishId();
+            chosenSize = first.getSizeSpec();
+        }
+
         String token = TestAuthSupport.registerAndExtractToken(mockMvc, "checkout@example.com");
 
         MvcResult result = mockMvc.perform(post("/api/v1/orders/checkout")
@@ -32,12 +50,19 @@ class OrderControllerIntegrationTests extends BaseIntegrationTest {
                         .content("""
                                 {
                                   "productId": 1,
+                                  "finishId": "%s",
+                                  "sizeSpec": "%s",
                                   "lensOptionTypes": ["HIGH_INDEX_174", "AR_ONYX", "HEV_BLUE"],
                                   "customer": {
                                     "firstName": "Mina",
                                     "lastName": "Hart",
                                     "email": "checkout@example.com",
-                                    "shippingAddress": "1 Vision Plaza"
+                                    "phone": "13800138000",
+                                    "province": "上海市",
+                                    "city": "上海市",
+                                    "district": "静安区",
+                                    "detailAddress": "南京西路1号视界广场",
+                                    "shippingAddress": "上海市 上海市 静安区 南京西路1号视界广场"
                                   },
                                   "prescription": {
                                     "sphOd": -2.25,
@@ -49,7 +74,7 @@ class OrderControllerIntegrationTests extends BaseIntegrationTest {
                                     "pd": 63.50
                                   }
                                 }
-                                """))
+                                """.formatted(chosenFinish, chosenSize)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CREATED"))
                 .andExpect(jsonPath("$.productName").isString())
@@ -60,7 +85,7 @@ class OrderControllerIntegrationTests extends BaseIntegrationTest {
         Order order = orderRepository.findByOrderNumber(orderNumber).orElseThrow();
 
         assertThat(order.getCustomerEmail()).isEqualTo("checkout@example.com");
-        assertThat(order.getShippingAddress()).isEqualTo("1 Vision Plaza");
+        assertThat(order.getShippingAddress()).contains("南京西路1号视界广场");
         assertThat(order.getLensOptionTypes()).containsExactly("HIGH_INDEX_174", "AR_ONYX", "HEV_BLUE");
         assertThat(order.getPrescription()).isNotNull();
         assertThat(order.getProduct()).isNotNull();

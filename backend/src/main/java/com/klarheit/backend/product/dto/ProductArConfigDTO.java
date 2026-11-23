@@ -16,10 +16,12 @@ public record ProductArConfigDTO(
     String frameColor,
     String lensColor,
     String modelUrl,
+    String modelScaleMode,
+    Boolean legacyMaterials,
     TransformOffsetDTO transformOffset
 ) {
     public ProductArConfigDTO(String id, String productName, String finishLabelKey, String lensLabel, String fitLabelKey, String frameColor, String lensColor, String modelUrl, TransformOffsetDTO transformOffset) {
-        this(id, productName, productName, productName, finishLabelKey, lensLabel, lensLabel, lensLabel, fitLabelKey, frameColor, lensColor, modelUrl, transformOffset);
+        this(id, productName, productName, productName, finishLabelKey, lensLabel, lensLabel, lensLabel, fitLabelKey, frameColor, lensColor, modelUrl, "normalized", null, transformOffset);
     }
 
     public record TransformOffsetDTO(

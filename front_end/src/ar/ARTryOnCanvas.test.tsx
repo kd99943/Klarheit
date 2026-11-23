@@ -1,302 +1,170 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, test, vi } from "vitest";
+import { act, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import * as THREE from "three";
 
-vi.mock("three", () => {
-  class MockGeometry {
-    translate() {
-      return this;
-    }
-    rotateX() {
-      return this;
-    }
-    rotateY() {
-      return this;
-    }
-    rotateZ() {
-      return this;
-    }
-    clone() {
-      return new MockGeometry();
-    }
-    dispose() {}
-  }
-
-  class Vector3 {
-    x = 0;
-    y = 0;
-    z = 0;
-    constructor(x = 0, y = 0, z = 0) {
-      this.x = x;
-      this.y = y;
-      this.z = z;
-    }
-    set(x: number, y: number, z: number) {
-      this.x = x;
-      this.y = y;
-      this.z = z;
-      return this;
-    }
-    setScalar(s: number) {
-      this.x = s;
-      this.y = s;
-      this.z = s;
-      return this;
-    }
-    lerp(v: { x: number; y: number; z: number }, alpha: number) {
-      this.x += (v.x - this.x) * alpha;
-      this.y += (v.y - this.y) * alpha;
-      this.z += (v.z - this.z) * alpha;
-      return this;
-    }
-    clone() {
-      return new Vector3(this.x, this.y, this.z);
-    }
-    sub() {
-      return this;
-    }
-    normalize() {
-      return this;
-    }
-    cross() {
-      return this;
-    }
-    distanceTo() {
-      return 0.5;
-    }
-    applyQuaternion() {
-      return this;
-    }
-  }
-
-  class Quaternion {
-    x = 0;
-    y = 0;
-    z = 0;
-    w = 1;
-    set() {
-      return this;
-    }
-    setFromEuler() {
-      return this;
-    }
-    setFromRotationMatrix() {
-      return this;
-    }
-    copy() {
-      return this;
-    }
-    multiply() {
-      return this;
-    }
-    slerp() {
-      return this;
-    }
-  }
-
-  class Euler {
-    x = 0;
-    y = 0;
-    z = 0;
-    order = "XYZ";
-    constructor(x = 0, y = 0, z = 0, order = "XYZ") {
-      this.x = x;
-      this.y = y;
-      this.z = z;
-      this.order = order;
-    }
-    set(x: number, y: number, z: number, order?: string) {
-      this.x = x;
-      this.y = y;
-      this.z = z;
-      if (order) this.order = order;
-      return this;
-    }
-  }
-
-  class Matrix4 {
-    makeBasis() {
-      return this;
-    }
-  }
-
-  const mockRenderer = {
-    setPixelRatio: vi.fn(),
-    setSize: vi.fn(),
-    render: vi.fn(),
-    dispose: vi.fn(),
-    setClearColor: vi.fn(),
-    shadowMap: { enabled: false, type: 0 },
-    toneMapping: 0,
-    toneMappingExposure: 1,
-  };
-
+const mocks = vi.hoisted(() => ({
+  render: vi.fn(), dispose: vi.fn(), load: vi.fn(), decoder: vi.fn(),
+  ratio: vi.fn(), size: vi.fn(), envDispose: vi.fn(),
+}));
+vi.mock("three", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("three")>();
   return {
-    WebGLRenderer: class WebGLRenderer {
-      shadowMap = { enabled: false, type: 0 };
-      constructor() {
-        return mockRenderer;
-      }
+    ...actual,
+    WebGLRenderer: class {
+      shadowMap = {};
+      render = mocks.render;
+      dispose = mocks.dispose;
+      setPixelRatio = mocks.ratio;
+      setSize = mocks.size;
+      setClearColor = vi.fn();
     },
-    Scene: class Scene {
-      add = vi.fn();
-      remove = vi.fn();
-      environment = null;
-    },
-    PerspectiveCamera: class PerspectiveCamera {
-      position = { z: 0 };
-      aspect = 1;
-      updateProjectionMatrix = vi.fn();
-    },
-    AmbientLight: class AmbientLight {},
-    DirectionalLight: class DirectionalLight {
-      position = { set: vi.fn() };
-      shadow = {
-        mapSize: { width: 0, height: 0 },
-        bias: 0,
-        radius: 0,
-        camera: {
-          left: 0,
-          right: 0,
-          top: 0,
-          bottom: 0,
-          near: 0,
-          far: 0,
-          updateProjectionMatrix: vi.fn(),
-        },
-      };
-    },
-    Group: class Group {
-      add = vi.fn();
-      remove = vi.fn();
-      position = new Vector3();
-      quaternion = new Quaternion();
-      rotation = new Euler();
-      scale = new Vector3(1, 1, 1);
-      traverse = vi.fn();
-      visible = true;
-    },
-    Mesh: class Mesh {
-      position = new Vector3();
-      quaternion = new Quaternion();
-      rotation = new Euler();
-      scale = new Vector3(1, 1, 1);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      geometry: any = { dispose: vi.fn() };
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      material: any = { dispose: vi.fn() };
-      castShadow = false;
-      receiveShadow = false;
-      constructor(geometry?: unknown, material?: unknown) {
-        if (geometry) this.geometry = geometry;
-        if (material) this.material = material;
-      }
-      add() {
-        return this;
-      }
-    },
-    TorusGeometry: class TorusGeometry extends MockGeometry {},
-    CircleGeometry: class CircleGeometry extends MockGeometry {},
-    BoxGeometry: class BoxGeometry extends MockGeometry {},
-    SphereGeometry: class SphereGeometry extends MockGeometry {},
-    CylinderGeometry: class CylinderGeometry extends MockGeometry {},
-    ExtrudeGeometry: class ExtrudeGeometry extends MockGeometry {},
-    ShapeGeometry: class ShapeGeometry extends MockGeometry {},
-    CapsuleGeometry: class CapsuleGeometry extends MockGeometry {},
-    TubeGeometry: class TubeGeometry extends MockGeometry {},
-    CatmullRomCurve3: class CatmullRomCurve3 {
-      constructor() {}
-    },
-    Shape: class Shape {
-      moveTo = vi.fn();
-      lineTo = vi.fn();
-      quadraticCurveTo = vi.fn();
-      bezierCurveTo = vi.fn();
-      absellipse = vi.fn();
-      closePath = vi.fn();
-      holes: unknown[] = [];
-    },
-    Path: class Path {
-      moveTo = vi.fn();
-      lineTo = vi.fn();
-      quadraticCurveTo = vi.fn();
-      bezierCurveTo = vi.fn();
-      absellipse = vi.fn();
-      closePath = vi.fn();
-    },
-    MeshStandardMaterial: class MeshStandardMaterial {},
-    MeshPhysicalMaterial: class MeshPhysicalMaterial {
-      color = { offsetHSL: () => this };
-      constructor(public params?: unknown) {}
-    },
-    MeshBasicMaterial: class MeshBasicMaterial {},
-    ShadowMaterial: class ShadowMaterial {},
-    Vector3,
-    Quaternion,
-    Euler,
-    Matrix4,
-    Color: class Color {
-      constructor(_val?: unknown) {}
-      offsetHSL() {
-        return this;
-      }
-    },
-    PCFSoftShadowMap: 1,
-    ACESFilmicToneMapping: 1,
-    EquirectangularReflectionMapping: 2,
-    SRGBColorSpace: "srgb",
-    PMREMGenerator: class PMREMGenerator {
-      compileEquirectangularShader = vi.fn();
-      fromEquirectangular = vi.fn().mockReturnValue({ texture: {} });
-      dispose = vi.fn();
-    },
-    CanvasTexture: class CanvasTexture {
-      mapping = 0;
-      colorSpace = "";
+    PMREMGenerator: class {
+      fromScene = () => ({ texture: new actual.Texture(), dispose: mocks.envDispose });
       dispose = vi.fn();
     },
   };
 });
+vi.mock("three/examples/jsm/loaders/GLTFLoader.js", () => ({
+  GLTFLoader: class { load = mocks.load; setMeshoptDecoder = mocks.decoder; },
+}));
 
-vi.mock("three/examples/jsm/loaders/GLTFLoader.js", () => {
-  return {
-    GLTFLoader: class GLTFLoader {
-      load = vi.fn();
-    },
-  };
-});
-
-import { ARTryOnCanvas } from "./ARTryOnCanvas";
+import { ARTryOnCanvas, calculateGlassesTransform3D } from "./ARTryOnCanvas";
 import { getARFrameConfig } from "./frameCatalog";
+import type { FaceLandmark } from "./types";
+
+let tick: FrameRequestCallback;
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => { tick = cb; return 1; });
+  vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => undefined);
+  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+  vi.stubGlobal("matchMedia", () => ({ matches: false }));
+});
+
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+
+const frame = getARFrameConfig("titanium");
+const pose = { position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1], confidence: 1 } as const;
+const transform = { position: [...pose.position], rotation: [...pose.rotation], scale: [...pose.scale], confidence: 1 } as import("./types").ARTransform;
+function scene(): THREE.Scene { return mocks.render.mock.lastCall![0]; }
+function glasses(): THREE.Group { return scene().children.find((item: THREE.Object3D) => item instanceof THREE.Group) as THREE.Group; }
 
 describe("ARTryOnCanvas", () => {
-  test("renders video and canvas layers for the AR scene", () => {
-    const stream = { id: "stream-1" } as MediaStream;
-
-    render(
-      <ARTryOnCanvas
-        stream={stream}
-        frame={getARFrameConfig("matte-black")}
-        transform={null}
-        onCaptureReady={vi.fn()}
-      />
-    );
-
-    expect(screen.getByTestId("ar-video-layer")).toBeInTheDocument();
-    expect(screen.getByTestId("ar-canvas-layer")).toBeInTheDocument();
+  test("uses a video background while keeping the decoding video mounted and invisible", () => {
+    render(<ARTryOnCanvas stream={null} frame={frame} transform={null} onCaptureReady={vi.fn()} />);
+    const video = screen.getByTestId("ar-video-layer");
+    expect(video).toHaveClass("opacity-0");
+    expect(video).not.toHaveClass("hidden");
+    expect(scene().background).toBeInstanceOf(THREE.VideoTexture);
+    expect((scene().background as THREE.VideoTexture).image).toBe(video);
+    expect((scene().background as THREE.VideoTexture).colorSpace).toBe(THREE.SRGBColorSpace);
+    expect(glasses().visible).toBe(false);
   });
 
-  test("exposes a capture function when the canvas is ready", () => {
-    const onCaptureReady = vi.fn();
+  test("retains independent depth/shadow helpers when a GLB replaces the fallback", () => {
+    const onModelLoad = vi.fn();
+    render(<ARTryOnCanvas stream={null} frame={{ ...frame, modelUrl: "/frame.glb" }} transform={transform} onCaptureReady={vi.fn()} onModelLoad={onModelLoad} />);
+    const group = glasses();
+    const helpers = group.children[0];
+    const model = new THREE.Group();
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial());
+    model.add(mesh);
+    act(() => mocks.load.mock.lastCall![1]({ scene: model }));
+    expect(group.children).toHaveLength(2);
+    expect(group.children[0]).toBe(helpers);
+    expect(helpers.children[0].renderOrder).toBe(-1);
+    expect((helpers.children[1] as THREE.Mesh).receiveShadow).toBe(true);
+    expect(mesh.castShadow).toBe(true);
+    expect(mocks.decoder).toHaveBeenCalled();
+    expect(onModelLoad).not.toHaveBeenCalled();
+    act(() => tick(100));
+    expect(onModelLoad).toHaveBeenCalledWith({ url: "/frame.glb", status: "loaded" });
+    expect(mocks.render.mock.invocationCallOrder.at(-1)).toBeLessThan(onModelLoad.mock.invocationCallOrder[0]);
+    act(() => tick(116));
+    expect(onModelLoad).toHaveBeenCalledOnce();
+  });
 
-    render(
-      <ARTryOnCanvas
-        stream={{ id: "stream-1" } as MediaStream}
-        frame={getARFrameConfig("titanium")}
-        transform={null}
-        onCaptureReady={onCaptureReady}
-      />
-    );
+  test("reports failed GLB loading instead of reporting the procedural fallback as loaded", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const onModelLoad = vi.fn();
+    const { unmount } = render(<ARTryOnCanvas stream={null} frame={{ ...frame, modelUrl: "/missing.glb" }} transform={transform} onCaptureReady={vi.fn()} onModelLoad={onModelLoad} />);
+    act(() => mocks.load.mock.lastCall![3](new Error("404")));
+    act(() => tick(100));
+    expect(onModelLoad).toHaveBeenCalledExactlyOnceWith({ url: "/missing.glb", status: "error" });
+    unmount();
+    act(() => mocks.load.mock.lastCall![1]({ scene: new THREE.Group() }));
+    expect(onModelLoad).toHaveBeenCalledOnce();
+  });
 
-    expect(onCaptureReady).toHaveBeenCalledWith(expect.any(Function));
+  test("hides stale tracking immediately and honors overlay toggling", () => {
+    const landmarksRef = { current: null as FaceLandmark[] | null };
+    const { rerender } = render(<ARTryOnCanvas stream={null} frame={frame} transform={transform} landmarksRef={landmarksRef} onCaptureReady={vi.fn()} />);
+    expect(glasses().visible).toBe(false);
+    rerender(<ARTryOnCanvas stream={null} frame={frame} transform={transform} onCaptureReady={vi.fn()} />);
+    expect(glasses().visible).toBe(true);
+    rerender(<ARTryOnCanvas stream={null} frame={frame} transform={transform} showOverlay={false} onCaptureReady={vi.fn()} />);
+    act(() => tick(100));
+    expect(glasses().visible).toBe(false);
+  });
+
+  test("releases video, environment and late GLB resources on unmount", () => {
+    const capture = vi.fn();
+    const { unmount } = render(<ARTryOnCanvas stream={null} frame={{ ...frame, modelUrl: "/frame.glb" }} transform={null} onCaptureReady={capture} />);
+    expect(capture).toHaveBeenCalledWith(expect.any(Function));
+    const background = scene().background as THREE.VideoTexture;
+    const dispose = vi.spyOn(background, "dispose");
+    unmount();
+    expect(dispose).toHaveBeenCalledOnce();
+    expect(mocks.envDispose).toHaveBeenCalledOnce();
+    expect(mocks.dispose).toHaveBeenCalledOnce();
+    expect(capture).toHaveBeenLastCalledWith(null);
+    const late = new THREE.Group();
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial());
+    const geometryDispose = vi.spyOn(mesh.geometry, "dispose");
+    late.add(mesh);
+    act(() => mocks.load.mock.lastCall![1]({ scene: late }));
+    expect(geometryDispose).toHaveBeenCalledOnce();
+  });
+
+  test("renders only the published snapshot and releases its texture on resolution change", () => {
+    const image = document.createElement("canvas");
+    image.width = 640; image.height = 480;
+    const trackedFrameRef = { current: { image, landmarks: null, timestampMs: 100, mediaTime: 1 } };
+    const sourceVideoRef = { current: document.createElement("video") };
+    render(<ARTryOnCanvas stream={null} frame={frame} transform={transform} trackedFrameRef={trackedFrameRef} sourceVideoRef={sourceVideoRef} onCaptureReady={vi.fn()} />);
+    expect(screen.queryByTestId("ar-video-layer")).toBeNull();
+    const texture = scene().background as THREE.CanvasTexture;
+    expect(texture).toBeInstanceOf(THREE.CanvasTexture);
+    expect(texture.image).toBe(image);
+    expect(glasses().visible).toBe(false);
+    const version = texture.version;
+    act(() => tick(116));
+    expect(texture.version).toBe(version);
+    const nextImage = document.createElement("canvas");
+    nextImage.width = 640; nextImage.height = 480;
+    trackedFrameRef.current = { image: nextImage, landmarks: null, timestampMs: 120, mediaTime: 1.02 };
+    act(() => tick(120));
+    expect(scene().background).toBe(texture);
+    expect(texture.image).toBe(nextImage);
+    expect(texture.version).toBeGreaterThan(version);
+    const dispose = vi.spyOn(texture, "dispose");
+    image.width = 1280; image.height = 720;
+    trackedFrameRef.current = { image, landmarks: null, timestampMs: 133, mediaTime: 1.033 };
+    act(() => tick(133));
+    expect(dispose).toHaveBeenCalledOnce();
+    expect(scene().background).not.toBe(texture);
+    expect((scene().background as THREE.CanvasTexture).image).toBe(image);
+  });
+
+  test("uses iris distance and preserves physical product/PD scaling", () => {
+    const points = Array.from({ length: 478 }, () => ({ x: 0.5, y: 0.5, z: 0 }));
+    points[468] = { x: 0.4, y: 0.4, z: 0 };
+    points[473] = { x: 0.6, y: 0.4, z: 0 };
+    points[168] = { x: 0.5, y: 0.45, z: 0 };
+    points[1] = { x: 0.5, y: 0.6, z: -0.02 };
+    const base = calculateGlassesTransform3D(points, 1, 1, 71, 63, 35, 2.8)!;
+    const wider = calculateGlassesTransform3D(points, 1, 1, 80, 63, 35, 2.8)!;
+    expect(wider.scale[0] / base.scale[0]).toBeCloseTo(80 / 71);
+    expect(calculateGlassesTransform3D(points, 1, 1, 71, 70, 35, 2.8)!.scale[0] / base.scale[0]).toBeCloseTo(63 / 70);
   });
 });

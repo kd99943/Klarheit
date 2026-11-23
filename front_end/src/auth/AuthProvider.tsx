@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -14,6 +15,7 @@ import {
   logoutUser,
   registerUser,
   fetchCurrentUser,
+  markSessionActive,
   setStoredAuthToken,
   logoutStoredAuthToken,
   getStoredAuthToken,
@@ -23,6 +25,14 @@ import {
   type UserProfile,
 } from "../services/api";
 import { setUserContext, track } from "../services/analytics";
+import {
+  ACTIVE_ACCOUNT_OWNER_KEY,
+  getStoredAccountOwner,
+  normalizeOwnerKey,
+  purgeAllSensitiveBrowserData,
+  setStoredAccountOwner,
+  syncAccountIdentityOrPurge,
+} from "../lib/privacy";
 
 type AuthMode = "signin" | "register";
 
@@ -57,6 +67,26 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+const PROTECTED_EXACT_PATHS = new Set([
+  "/checkout",
+  "/config-lab",
+  "/my-account",
+  "/my-orders",
+  "/profile-details",
+  "/addresses",
+  "/appointments",
+  "/order-confirmation",
+  "/admin",
+]);
+
+function isProtectedRoutePath(pathname: string): boolean {
+  return (
+    PROTECTED_EXACT_PATHS.has(pathname) ||
+    pathname.startsWith("/order/") ||
+    pathname.startsWith("/admin/")
+  );
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -70,22 +100,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [authMessage, setAuthMessage] = useState<string | null>(null);
   const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<PendingNavigation | null>(null);
+  const isSigningOutRef = useRef(false);
+
+  useEffect(() => {
+    if (!isProtectedRoutePath(location.pathname)) {
+      isSigningOutRef.current = false;
+    }
+  }, [location.pathname]);
 
   useEffect(() => {
     let isCancelled = false;
 
     async function loadCurrentUser() {
       try {
-        const currentUser = await fetchCurrentUser();
+        const currentUser = await fetchCurrentUser({ suppressSessionExpired: true });
         if (!isCancelled) {
+          markSessionActive(true);
+          syncAccountIdentityOrPurge(normalizeOwnerKey(currentUser));
           setUser(currentUser);
+          setUserContext(String(currentUser.id));
         }
       } catch {
         if (!isCancelled) {
+          const hadPreviousIdentity = Boolean(getStoredAuthToken() || getStoredAccountOwner());
+          markSessionActive(false);
           setUser(null);
-          // If /auth/me failed the token is invalid/expired — clear local state.
+          // Only purge local state & cart when an existing authenticated session expired;
+          // a fresh guest receiving 401 on bootstrap keeps their local guest cart intact.
           if (getStoredAuthToken()) {
             logoutStoredAuthToken();
+          }
+          if (hadPreviousIdentity) {
+            purgeAllSensitiveBrowserData({
+              clearCart: true,
+              dispatchEventName: "klarheit:session-expired",
+            });
+            setStoredAccountOwner(null);
           }
           setToken(null);
         }
@@ -103,7 +153,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // P0-09: React immediately to 401 session expiration or cross-tab logout / account switching
+  useEffect(() => {
+    function clearSessionState() {
+      markSessionActive(false);
+      purgeAllSensitiveBrowserData({ clearCart: true });
+      setStoredAccountOwner(null);
+      setToken(null);
+      setUserContext();
+      setUser(null);
+      setPendingNavigation(null);
+      if (isProtectedRoutePath(location.pathname)) {
+        navigate("/collections", { replace: true });
+      }
+    }
+    function handleSessionExpired() {
+      clearSessionState();
+    }
+    function handleCrossTabStorage(event: StorageEvent) {
+      if (
+        (event.key === ACTIVE_ACCOUNT_OWNER_KEY && event.oldValue !== event.newValue) ||
+        (event.key === "klarheit_auth_token" && event.oldValue && !event.newValue)
+      ) {
+        if (!event.newValue) {
+          clearSessionState();
+        } else {
+          // Another tab signed into a different account — clear local drafts & reload current user
+          purgeAllSensitiveBrowserData({ clearCart: true, dispatchEventName: "klarheit:account-switched" });
+          void fetchCurrentUser({ suppressSessionExpired: true })
+            .then((u) => {
+              markSessionActive(true);
+              setUser(u);
+              setUserContext(String(u.id));
+              if (isProtectedRoutePath(location.pathname)) {
+                navigate("/collections", { replace: true });
+              }
+            })
+            .catch(() => clearSessionState());
+        }
+      }
+    }
+    window.addEventListener("klarheit:session-expired", handleSessionExpired);
+    window.addEventListener("storage", handleCrossTabStorage);
+    return () => {
+      window.removeEventListener("klarheit:session-expired", handleSessionExpired);
+      window.removeEventListener("storage", handleCrossTabStorage);
+    };
+  }, [location.pathname, navigate]);
+
   const applyAuthResponse = useCallback((response: AuthResponse) => {
+    const switchedAccount = syncAccountIdentityOrPurge(normalizeOwnerKey(response.user));
+    markSessionActive(true);
     if (response.token) {
       setStoredAuthToken(response.token);
       setToken(response.token);
@@ -114,12 +214,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthMessage(null);
     setIsAuthModalOpen(false);
     if (pendingNavigation) {
+      if (
+        switchedAccount &&
+        (pendingNavigation.path === "/checkout" || pendingNavigation.path === "/config-lab")
+      ) {
+        setPendingNavigation(null);
+        navigate("/collections", { replace: true });
+        return;
+      }
       navigate(pendingNavigation.path, { replace: true, state: pendingNavigation.state });
       setPendingNavigation(null);
       return;
     }
 
-    navigate(location.pathname, { replace: true, state: location.state });
+    navigate(location.pathname, { replace: true, state: switchedAccount ? null : location.state });
   }, [location.pathname, location.state, navigate, pendingNavigation]);
 
   const openAuthModal = useCallback((options?: {
@@ -144,6 +252,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (user) {
       return true;
     }
+    if (isSigningOutRef.current) {
+      return false;
+    }
 
     openAuthModal({
       mode: "signin",
@@ -164,7 +275,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       const reason = error instanceof Error ? error.message : t("auth.unableToSignIn");
       setAuthError(reason);
-      track("auth_signin_failed", { reason });
+      track("auth_signin_failed", { reason_code: "signin_error" });
     } finally {
       setIsSubmittingAuth(false);
     }
@@ -181,27 +292,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       const reason = error instanceof Error ? error.message : t("auth.unableToCreateAccount");
       setAuthError(reason);
-      track("auth_signup_failed", { reason });
+      track("auth_signup_failed", { reason_code: "signup_error" });
     } finally {
       setIsSubmittingAuth(false);
     }
   }
 
   async function logout() {
+    const leavingProtected = isProtectedRoutePath(location.pathname);
+    if (leavingProtected) {
+      isSigningOutRef.current = true;
+    }
     try {
       await logoutUser();
     } catch (error) {
       console.error("Logout failed on backend", error);
     }
     logoutStoredAuthToken();
+    markSessionActive(false);
+    // P0-09: Clear all user-sensitive local & session drafts (prescriptions, try-on photos,
+    // checkout drafts, idempotency keys, and account ownership marker) on shared devices.
+    purgeAllSensitiveBrowserData({
+      clearCart: true,
+      dispatchEventName: "klarheit:logout",
+    });
+    setStoredAccountOwner(null);
     setToken(null);
     setUserContext();
     setUser(null);
     setIsAuthReady(true);
     setPendingNavigation(null);
     setIsAuthModalOpen(false);
-    if (location.pathname === "/checkout" || location.pathname === "/config-lab") {
-      navigate("/collections");
+    if (leavingProtected) {
+      navigate("/collections", { replace: true });
     }
   }
 

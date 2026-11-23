@@ -73,7 +73,7 @@ export function ForgotPasswordFlow({ onBack }: Props) {
     } catch (err) {
       const reason = err instanceof Error ? err.message : "重置失败";
       setError(reason);
-      track("auth_password_reset_failed", { reason });
+      track("auth_password_reset_failed", { reason_code: "reset_failed" });
     } finally {
       setIsLoading(false);
     }

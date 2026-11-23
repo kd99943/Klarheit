@@ -7,6 +7,7 @@ import { useAuth } from "../../auth/AuthProvider";
 import { useCart } from "../../hooks/useCart";
 import { LanguageToggle } from "./LanguageToggle";
 import { track } from "../../services/analytics";
+import { isStaffRole } from "../../services/api";
 
 export function Navbar() {
   const { t } = useTranslation();
@@ -18,6 +19,26 @@ export function Navbar() {
   const { user, isAuthenticated, openAuthModal, requireAuth, logout } = useAuth();
   const { count: cartCount } = useCart();
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
+  const accountButtonRef = useRef<HTMLButtonElement | null>(null);
+  const mobileMenuButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  const closeMobileMenu = (restoreFocus = false) => {
+    setMobileOpen(false);
+    if (restoreFocus) {
+      window.requestAnimationFrame(() => {
+        mobileMenuButtonRef.current?.focus();
+      });
+    }
+  };
+
+  const closeAccountMenu = (restoreFocus = false) => {
+    setAccountMenuOpen(false);
+    if (restoreFocus) {
+      window.requestAnimationFrame(() => {
+        accountButtonRef.current?.focus();
+      });
+    }
+  };
 
   // Dark mode overlay triggers on AR Studio
   const isDarkCanvas = location.pathname === "/virtual-studio";
@@ -35,6 +56,7 @@ export function Navbar() {
   useEffect(() => {
     setMobileOpen(false);
     setAccountMenuOpen(false);
+    setScrolled(window.scrollY > 40);
   }, [location.pathname]);
 
   useEffect(() => {
@@ -43,10 +65,24 @@ export function Navbar() {
         setAccountMenuOpen(false);
       }
     }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      if (mobileOpen) {
+        event.preventDefault();
+        closeMobileMenu(true);
+      } else if (accountMenuOpen) {
+        event.preventDefault();
+        closeAccountMenu(true);
+      }
+    }
 
     window.addEventListener("pointerdown", handlePointerDown);
-    return () => window.removeEventListener("pointerdown", handlePointerDown);
-  }, []);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [mobileOpen, accountMenuOpen]);
 
   const navItems: Array<{ to: string; label: string; requiresAuth?: boolean; message?: string }> = [
     { to: "/collections", label: t("nav.collections") },
@@ -58,10 +94,10 @@ export function Navbar() {
     <>
       <header
       className={cn(
-        "fixed top-0 w-full z-50 transition-all duration-500 flex justify-center items-center backdrop-blur-md h-20 border-b",
+        "fixed top-0 w-full z-50 transition-colors duration-200 flex justify-center items-center backdrop-blur-md h-20 border-b",
         scrolled || isDarkCanvas
-          ? "bg-brand-primary/95 border-white/10"
-          : "bg-white/80 border-slate-200",
+          ? "bg-brand-primary border-white/10"
+          : "bg-white/95 border-slate-200",
         isDarkCanvas || scrolled ? "text-white" : "text-brand-primary"
       )}
     >
@@ -96,22 +132,20 @@ export function Navbar() {
         </nav>
 
         {/* Global Actions */}
-        <div className="flex items-center gap-3 sm:gap-4 z-20">
-          <div className="hidden xl:block text-[10px] uppercase tracking-widest text-slate-400 font-mono mr-2">
-            {t("nav.session")}: {user ? `${user.firstName.slice(0, 1)}${user.lastName.slice(0, 1)}-4920` : "CH-4920"}
-          </div>
+        <div className="flex items-center gap-2 sm:gap-4 z-20">
           <LanguageToggle isDark={isDarkCanvas || scrolled} className="hidden sm:flex" />
           <button
             onClick={() => navigate("/cart")}
+            aria-label={cartCount > 0 ? `${t("nav.cart")} ${cartCount}` : t("nav.cart")}
             className={cn(
-              "relative hidden md:flex items-center gap-2 text-[10px] uppercase tracking-widest border px-4 lg:px-6 py-2 transition-colors duration-500 rounded-sm font-medium",
+              "relative flex items-center gap-2 text-[10px] uppercase tracking-widest border px-3 md:px-4 lg:px-6 py-2 transition-colors duration-500 rounded-sm font-medium",
               isDarkCanvas || scrolled
                 ? "border-white/50 hover:bg-white hover:text-brand-primary"
                 : "border-slate-200 hover:bg-brand-primary hover:text-white"
             )}
           >
             <ShoppingBag className="w-3.5 h-3.5" />
-            {t("nav.checkout")}
+            <span className="hidden md:inline">{t("nav.cart")}</span>
             {cartCount > 0 && (
               <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
                 {cartCount}
@@ -122,6 +156,7 @@ export function Navbar() {
             {isAuthenticated && user ? (
               <>
                 <button
+                  ref={accountButtonRef}
                   onClick={() => setAccountMenuOpen((current) => !current)}
                   className={cn(
                     "flex items-center gap-3 rounded-full border px-2 py-2 transition-colors",
@@ -149,11 +184,11 @@ export function Navbar() {
                   <ChevronDown className={cn("hidden md:block h-4 w-4 transition-transform", accountMenuOpen ? "rotate-180" : "", isDarkCanvas || scrolled ? "text-white/70" : "text-slate-400")} strokeWidth={1.5} />
                 </button>
 
+                {accountMenuOpen && (
                 <div
                   className={cn(
-                    "absolute right-0 top-[calc(100%+12px)] w-80 rounded-2xl border p-4 shadow-[0_24px_48px_-28px_rgba(15,23,42,0.45)] backdrop-blur-xl transition-all",
-                    accountMenuOpen ? "translate-y-0 opacity-100 pointer-events-auto" : "translate-y-2 opacity-0 pointer-events-none",
-                    isDarkCanvas || scrolled ? "border-white/10 bg-brand-primary/95 text-white" : "border-slate-200 bg-white/95 text-brand-primary"
+                    "absolute right-0 top-[calc(100%+12px)] z-50 w-80 rounded-2xl border p-4 shadow-[0_24px_48px_-20px_rgba(15,23,42,0.55)] transition-all",
+                    isDarkCanvas || scrolled ? "border-white/15 bg-brand-primary text-white" : "border-slate-200 bg-white text-brand-primary"
                   )}
                 >
                   <div className={cn("rounded-xl border p-4", isDarkCanvas || scrolled ? "border-white/10 bg-white/5" : "border-slate-200 bg-slate-50/80")}>
@@ -198,7 +233,7 @@ export function Navbar() {
                       type="button"
                       onClick={() => {
                         setAccountMenuOpen(false);
-                        navigate("/checkout");
+                        navigate("/my-orders");
                       }}
                       className={cn(
                         "flex items-center justify-between rounded-xl border px-4 py-3 text-left text-sm transition-colors",
@@ -209,7 +244,6 @@ export function Navbar() {
                         <ShoppingBag className="h-4 w-4" strokeWidth={1.5} />
                         {t("nav.myOrders")}
                       </span>
-                      <span className={cn("text-[10px] uppercase tracking-[0.18em]", isDarkCanvas || scrolled ? "text-white/45" : "text-slate-400")}>{t("nav.checkout")}</span>
                     </button>
                     <button
                       type="button"
@@ -228,7 +262,7 @@ export function Navbar() {
                       </span>
                       <span className={cn("text-[10px] uppercase tracking-[0.18em]", isDarkCanvas || scrolled ? "text-white/45" : "text-slate-400")}>{t("nav.config")}</span>
                     </button>
-                    {user?.role === "ADMIN" && (
+                    {isStaffRole(user?.role) && (
                       <button
                         type="button"
                         onClick={() => {
@@ -267,6 +301,7 @@ export function Navbar() {
                     </button>
                   </div>
                 </div>
+                )}
               </>
             ) : (
               <button
@@ -285,7 +320,14 @@ export function Navbar() {
             )}
           </div>
           <button
-            onClick={() => setMobileOpen((current) => !current)}
+            ref={mobileMenuButtonRef}
+            onClick={() => {
+              if (mobileOpen) {
+                closeMobileMenu(true);
+              } else {
+                setMobileOpen(true);
+              }
+            }}
             className={cn(
               "lg:hidden w-10 h-10 flex items-center justify-center border rounded-full transition-colors",
               isDarkCanvas || scrolled ? "border-white/20 hover:bg-white/10" : "border-slate-200 hover:bg-slate-50"
@@ -299,21 +341,83 @@ export function Navbar() {
         </div>
       </div>
     </header>
-    <div
-      id="mobile-navigation"
-      className={cn(
-        "fixed top-20 inset-x-0 z-40 border-b backdrop-blur-xl lg:hidden transition-all duration-300",
-        mobileOpen ? "translate-y-0 opacity-100 pointer-events-auto" : "-translate-y-4 opacity-0 pointer-events-none",
-        isDarkCanvas || scrolled ? "bg-brand-primary/95 border-white/10" : "bg-white/95 border-slate-200"
-      )}
-    >
-      <div className="mx-auto flex max-w-[1440px] flex-col gap-3 px-5 py-5 sm:px-8">
-        {isAuthenticated ? (
+    {mobileOpen && (
+      <>
+      <div
+        aria-hidden="true"
+        onClick={() => closeMobileMenu(true)}
+        className="fixed inset-0 top-20 z-30 bg-slate-950/45 backdrop-blur-[2px] lg:hidden"
+      />
+      <div
+        id="mobile-navigation"
+        className={cn(
+          "fixed top-20 inset-x-0 z-40 border-b shadow-xl lg:hidden transition-all duration-200",
+          isDarkCanvas || scrolled ? "bg-brand-primary border-white/10" : "bg-white border-slate-200"
+        )}
+      >
+        <div className="mx-auto flex max-w-[1440px] flex-col gap-3 px-5 py-5 sm:px-8">
+          {isAuthenticated ? (
+            <>
+              <Link
+                to="/my-account"
+                className={cn(
+                  "rounded-xl border px-4 py-3 text-sm uppercase tracking-[0.2em] font-semibold transition-colors",
+                  location.pathname === "/my-account"
+                    ? isDarkCanvas || scrolled
+                      ? "border-white/20 bg-white/10 text-white"
+                      : "border-brand-primary/20 bg-slate-50 text-brand-primary"
+                    : isDarkCanvas || scrolled
+                      ? "border-white/10 text-white/70"
+                      : "border-slate-200 text-slate-500"
+                )}
+              >
+                {t("nav.myAccount")}
+              </Link>
+              <Link
+                to="/my-orders"
+                className={cn(
+                  "rounded-xl border px-4 py-3 text-sm uppercase tracking-[0.2em] font-semibold transition-colors",
+                  location.pathname === "/my-orders"
+                    ? isDarkCanvas || scrolled
+                      ? "border-white/20 bg-white/10 text-white"
+                      : "border-brand-primary/20 bg-slate-50 text-brand-primary"
+                    : isDarkCanvas || scrolled
+                      ? "border-white/10 text-white/70"
+                      : "border-slate-200 text-slate-500"
+                )}
+              >
+                {t("nav.myOrders")}
+              </Link>
+            </>
+          ) : null}
+          {navItems.map((item) => (
+            <Link
+              key={item.to}
+              to={item.to}
+              onClick={(event) => {
+                if (item.requiresAuth && !requireAuth({ path: item.to }, item.message)) {
+                  event.preventDefault();
+                }
+              }}
+              className={cn(
+                "rounded-xl border px-4 py-3 text-sm uppercase tracking-[0.2em] font-semibold transition-colors",
+                location.pathname === item.to
+                  ? isDarkCanvas || scrolled
+                    ? "border-white/20 bg-white/10 text-white"
+                    : "border-brand-primary/20 bg-slate-50 text-brand-primary"
+                  : isDarkCanvas || scrolled
+                    ? "border-white/10 text-white/70"
+                    : "border-slate-200 text-slate-500"
+              )}
+            >
+              {item.label}
+            </Link>
+          ))}
           <Link
-            to="/my-account"
+            to="/cart"
             className={cn(
-              "rounded-xl border px-4 py-3 text-sm uppercase tracking-[0.2em] font-semibold transition-colors",
-              location.pathname === "/my-account"
+              "rounded-xl border px-4 py-3 text-sm uppercase tracking-[0.2em] font-semibold transition-colors flex items-center justify-between",
+              location.pathname === "/cart"
                 ? isDarkCanvas || scrolled
                   ? "border-white/20 bg-white/10 text-white"
                   : "border-brand-primary/20 bg-slate-50 text-brand-primary"
@@ -322,37 +426,20 @@ export function Navbar() {
                   : "border-slate-200 text-slate-500"
             )}
           >
-            {t("nav.myAccount")}
-          </Link>
-        ) : null}
-        {navItems.map((item) => (
-          <Link
-            key={item.to}
-            to={item.to}
-            onClick={(event) => {
-              if (item.requiresAuth && !requireAuth({ path: item.to }, item.message)) {
-                event.preventDefault();
-              }
-            }}
-            className={cn(
-              "rounded-xl border px-4 py-3 text-sm uppercase tracking-[0.2em] font-semibold transition-colors",
-              location.pathname === item.to
-                ? isDarkCanvas || scrolled
-                  ? "border-white/20 bg-white/10 text-white"
-                  : "border-brand-primary/20 bg-slate-50 text-brand-primary"
-                : isDarkCanvas || scrolled
-                  ? "border-white/10 text-white/70"
-                  : "border-slate-200 text-slate-500"
+            <span>{t("nav.cart")}</span>
+            {cartCount > 0 && (
+              <span className="min-w-[20px] h-[20px] px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                {cartCount}
+              </span>
             )}
-          >
-            {item.label}
           </Link>
-        ))}
-        <div className="border-t border-white/10 pt-3 mt-1">
-          <LanguageToggle isDark={isDarkCanvas || scrolled} className="justify-center py-2" />
+          <div className="border-t border-white/10 pt-3 mt-1">
+            <LanguageToggle isDark={isDarkCanvas || scrolled} className="justify-center py-2" />
+          </div>
         </div>
       </div>
-    </div>
+      </>
+    )}
     </>
   );
 }

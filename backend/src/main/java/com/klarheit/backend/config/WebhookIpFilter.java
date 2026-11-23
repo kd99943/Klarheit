@@ -35,16 +35,18 @@ public class WebhookIpFilter extends OncePerRequestFilter {
     @Value("${app.payment.webhook-trust-forwarded-for:false}")
     private boolean trustForwardedFor;
 
+    @Value("${app.payment.mock-enabled:false}")
+    private boolean mockEnabled;
+
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
         String path = request.getRequestURI();
 
-        // Only apply to webhook callback paths (not mock-trigger or mock-terminal)
-        if (path.startsWith(WEBHOOK_PATH_PREFIX)
-                && !path.contains("mock-trigger")
-                && !path.contains("mock-terminal")) {
+        // Apply to webhook callback paths (mock paths are only bypassed when mockEnabled=true in dev/test)
+        boolean isMockPath = path.contains("mock-trigger") || path.contains("mock-terminal");
+        if (path.startsWith(WEBHOOK_PATH_PREFIX) && (!isMockPath || !mockEnabled)) {
 
             List<String> allowedIps = parseWhitelist();
             if (!allowedIps.isEmpty()) {

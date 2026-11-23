@@ -10,13 +10,21 @@ public record OrderResponseDTO(
         String productName,
         List<String> lensOptionTypes,
         String payData,
-        String finishId
+        String finishId,
+        Long skuId,
+        String sizeSpecSnapshot,
+        Integer quoteVersion,
+        BigDecimal shippingFee
 ) {
     public OrderResponseDTO(String orderNumber, String status, BigDecimal totalAmount, String productName, List<String> lensOptionTypes) {
-        this(orderNumber, status, totalAmount, productName, lensOptionTypes, null, null);
+        this(orderNumber, status, totalAmount, productName, lensOptionTypes, null, null, null, null, null, null);
     }
-    
+
     public OrderResponseDTO(String orderNumber, String status, BigDecimal totalAmount, String productName, List<String> lensOptionTypes, String payData) {
-        this(orderNumber, status, totalAmount, productName, lensOptionTypes, payData, null);
+        this(orderNumber, status, totalAmount, productName, lensOptionTypes, payData, null, null, null, null, null);
+    }
+
+    public OrderResponseDTO(String orderNumber, String status, BigDecimal totalAmount, String productName, List<String> lensOptionTypes, String payData, String finishId) {
+        this(orderNumber, status, totalAmount, productName, lensOptionTypes, payData, finishId, null, null, null, null);
     }
 }

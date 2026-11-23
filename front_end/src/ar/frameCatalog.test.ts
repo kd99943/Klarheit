@@ -6,6 +6,7 @@ import {
   getSpecsForProductName,
 } from "./frameCatalog";
 import type { Product } from "../services/api";
+import { getARFrameConfig } from "./frameCatalog";
 
 function product(name: string): Product {
   return {
@@ -30,6 +31,10 @@ describe("frameCatalog product fidelity", () => {
     expect(FRAME_STYLES_MAP["MONOLITH 02"].styleName).toBe("bold-acetate");
     expect(FRAME_STYLES_MAP["ORBIT T-4"].styleName).toBe("panto-wire");
     expect(FRAME_STYLES_MAP["LUCENT V1"].styleName).toBe("crystal-sun");
+    expect(FRAME_STYLES_MAP["SOLARIS A1"].styleName).toBe("aviator-double");
+    expect(FRAME_STYLES_MAP["VELVET C3"].styleName).toBe("cat-eye-acetate");
+    expect(FRAME_STYLES_MAP["PRISM H6"].styleName).toBe("hex-wire");
+    expect(FRAME_STYLES_MAP["AMBER R5"].styleName).toBe("narrow-rect-amber");
   });
 
   test("LUCENT V1 uses dark sun lenses, not clear optical", () => {
@@ -60,8 +65,46 @@ describe("frameCatalog product fidelity", () => {
   });
 
   test("attaches local GLB for each hero product", () => {
-    for (const name of ["AERO X1", "MONOLITH 02", "ORBIT T-4", "LUCENT V1"]) {
+    for (const name of [
+      "AERO X1",
+      "MONOLITH 02",
+      "ORBIT T-4",
+      "LUCENT V1",
+      "SOLARIS A1",
+      "VELVET C3",
+      "PRISM H6",
+      "AMBER R5",
+    ]) {
       expect(getFrameConfigForProduct(product(name)).modelUrl).toBe(FRAME_MODEL_URLS[name]);
     }
+  });
+
+  test.each(["AERO X1", "CUSTOM FRAME"])("honors configured model and units for %s", (name) => {
+    const config = getFrameConfigForProduct({ ...product(name), arConfigs: [{
+      ...getARFrameConfig("titanium"), modelUrl: "/models/measured.glb", modelScaleMode: "real-meters", legacyMaterials: false,
+    }] });
+    expect(config.modelUrl).toBe("/models/measured.glb");
+    expect(config.modelScaleMode).toBe("real-meters");
+    expect(config.legacyMaterials).toBe(false);
+  });
+
+  test("inherits the default model's metadata when a color variant reuses it", () => {
+    const config = getFrameConfigForProduct({ ...product("AERO X1"), arConfigs: [
+      { ...getARFrameConfig("titanium"), modelUrl: "/models/measured.glb", modelScaleMode: "real-meters", legacyMaterials: false },
+      { ...getARFrameConfig("rose-gold"), modelScaleMode: "normalized", legacyMaterials: true },
+    ] }, "rose-gold");
+    expect(config.modelUrl).toBe("/models/measured.glb");
+    expect(config.modelScaleMode).toBe("real-meters");
+    expect(config.legacyMaterials).toBe(false);
+    expect(config.frameColor).toBe(getARFrameConfig("rose-gold").frameColor);
+  });
+
+  test("reuses a bundled model for color variants and honors an explicit replacement policy", () => {
+    const value = { ...product("AERO X1"), arConfigs: [getARFrameConfig("titanium"), getARFrameConfig("rose-gold")] };
+    expect(getFrameConfigForProduct(value, "rose-gold").modelUrl).toBe(FRAME_MODEL_URLS["AERO X1"]);
+    value.arConfigs[1] = { ...value.arConfigs[1], modelUrl: FRAME_MODEL_URLS["AERO X1"], legacyMaterials: false, modelScaleMode: "real-meters" };
+    const config = getFrameConfigForProduct(value, "rose-gold");
+    expect(config.legacyMaterials).toBe(false);
+    expect(config.modelScaleMode).toBe("real-meters");
   });
 });

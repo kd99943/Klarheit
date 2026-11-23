@@ -29,6 +29,9 @@ services:
     ports:
       - "8080:8080"
     environment:
+      - DB_URL=jdbc:mysql://db:3306/klarheit?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      - DB_USERNAME=klarheit_app
+      - DB_PASSWORD=${MYSQL_PASSWORD:-changeme_app_password}
       - SPRING_DATASOURCE_URL=jdbc:mysql://db:3306/klarheit?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
       - SPRING_DATASOURCE_USERNAME=klarheit_app
       - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD:-changeme_app_password}
@@ -37,9 +40,19 @@ services:
       - SERVER_PORT=8080
       - APP_JWT_SECRET=${APP_JWT_SECRET}
       - APP_FRONTEND_URL=${APP_FRONTEND_URL:-http://localhost}
-      - APP_RESEND_API_KEY=${RESEND_API_KEY:-}
-      - APP_RESEND_FROM_EMAIL=${RESEND_FROM_EMAIL:-orders@klarheit.com}
-      - APP_PAYMENT_CALLBACK_SECRET=${PAYMENT_CALLBACK_SECRET:-}
+      - APP_BACKEND_BASE_URL=${APP_BACKEND_BASE_URL:-http://localhost:8080}
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - RESEND_FROM_EMAIL=${RESEND_FROM_EMAIL:-orders@klarheit.com}
+      - PAYMENT_MOCK_ENABLED=${PAYMENT_MOCK_ENABLED:-false}
+      - PAYMENT_CALLBACK_SECRET=${PAYMENT_CALLBACK_SECRET:-}
+      - PAYMENT_WEBHOOK_IP_WHITELIST=${PAYMENT_WEBHOOK_IP_WHITELIST:-}
+      - PAYMENT_WEBHOOK_TRUST_FORWARDED_FOR=${PAYMENT_WEBHOOK_TRUST_FORWARDED_FOR:-false}
+      - ALIPAY_APP_ID=${ALIPAY_APP_ID:-}
+      - ALIPAY_PRIVATE_KEY=${ALIPAY_PRIVATE_KEY:-}
+      - ALIPAY_PUBLIC_KEY=${ALIPAY_PUBLIC_KEY:-}
+      - ALIPAY_GATEWAY_URL=${ALIPAY_GATEWAY_URL:-${ALIPAY_GATEWAY:-https://openapi-sandbox.dl.alipaydev.com/gateway.do}}
+      - ALIPAY_NOTIFY_URL=${ALIPAY_NOTIFY_URL:-}
+      - ALIPAY_RETURN_URL=${ALIPAY_RETURN_URL:-}
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost}
     depends_on:
       db:
@@ -58,9 +71,10 @@ services:
     ports:
       - "80:80"
     environment:
-      # Browser-facing backend origin for CSP connect-src.
+      # Browser-facing backend origin for CSP connect-src and runtime env-config.js injection.
       # Must match the URL browsers use to reach the backend (not the Docker internal hostname).
       - API_ORIGIN=${API_ORIGIN:-http://localhost:8080}
+      - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8080/api/v1}
     depends_on:
       - backend
 

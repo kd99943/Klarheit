@@ -63,4 +63,77 @@ describe("useCameraStream", () => {
 
     expect(stop).toHaveBeenCalledOnce();
   });
+
+  test("P0-09: stops tracks immediately if getUserMedia resolves AFTER timeout", async () => {
+    vi.useFakeTimers();
+    try {
+      let resolveMedia: (s: MediaStream) => void = () => {};
+      const stop = vi.fn();
+      const lateStream = {
+        getTracks: () => [{ stop }],
+      } as unknown as MediaStream;
+
+      setMediaDevices({
+        getUserMedia: vi.fn().mockImplementation(
+          () => new Promise<MediaStream>((resolve) => { resolveMedia = resolve; })
+        ),
+      } as unknown as MediaDevices);
+
+      const { result } = renderHook(() => useCameraStream());
+
+      let startPromise!: Promise<void>;
+      act(() => {
+        startPromise = result.current.start();
+      });
+
+      await act(async () => {
+        vi.advanceTimersByTime(12500);
+        await startPromise;
+      });
+
+      expect(result.current.status).toBe("denied");
+      expect(result.current.stream).toBeNull();
+
+      // User clicks "Allow" in browser prompt AFTER our timeout already fired
+      await act(async () => {
+        resolveMedia(lateStream);
+        await Promise.resolve();
+      });
+
+      expect(stop).toHaveBeenCalledOnce();
+      expect(result.current.stream).toBeNull();
+      expect(result.current.status).toBe("denied");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("P0-09: stops tracks immediately if getUserMedia resolves AFTER unmount", async () => {
+    let resolveMedia: (s: MediaStream) => void = () => {};
+    const stop = vi.fn();
+    const lateStream = {
+      getTracks: () => [{ stop }],
+    } as unknown as MediaStream;
+
+    setMediaDevices({
+      getUserMedia: vi.fn().mockImplementation(
+        () => new Promise<MediaStream>((resolve) => { resolveMedia = resolve; })
+      ),
+    } as unknown as MediaDevices);
+
+    const { result, unmount } = renderHook(() => useCameraStream());
+
+    act(() => {
+      void result.current.start();
+    });
+
+    unmount();
+
+    await act(async () => {
+      resolveMedia(lateStream);
+      await Promise.resolve();
+    });
+
+    expect(stop).toHaveBeenCalledOnce();
+  });
 });

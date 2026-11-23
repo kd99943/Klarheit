@@ -11,10 +11,13 @@ export function Layout() {
   return (
     <div className={cn(
       "flex flex-col min-h-screen font-sans selection:bg-brand-primary selection:text-white",
-      isDarkCanvas ? "bg-brand-primary text-white" : "bg-surface-offwhite text-brand-primary"
+      isDarkCanvas ? "bg-brand-primary text-white" : "bg-[var(--site-surface)] text-brand-primary"
     )}>
       <Navbar />
-      <main className="flex-grow flex flex-col w-full pt-20">
+      <main
+        className="flex-grow flex flex-col w-full"
+        style={{ paddingTop: "calc(5rem * var(--site-space, 1))" }}
+      >
         <Outlet />
       </main>
       

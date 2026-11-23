@@ -23,9 +23,10 @@ export function SectionCard({
   return (
     <section
       className={cn(
-        "rounded-2xl border border-slate-200/80 bg-white shadow-[0_24px_60px_-42px_rgba(15,23,42,0.28)]",
+        "border border-[var(--site-border)] bg-white shadow-[0_24px_60px_-42px_rgba(15,23,42,0.28)]",
         className
       )}
+      style={{ borderRadius: "var(--site-radius, 1rem)" }}
     >
       {title || eyebrow || description ? (
         <div className="border-b border-slate-100 px-5 py-5 sm:px-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

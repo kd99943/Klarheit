@@ -10,5 +10,17 @@ public record OrderSummaryDTO(
         BigDecimal totalAmount,
         String productName,
         List<String> lensOptionTypes,
-        LocalDateTime createdAt
-) {}
+        LocalDateTime createdAt,
+        String fulfillmentStatus
+) {
+    public OrderSummaryDTO(
+            String orderNumber,
+            String status,
+            BigDecimal totalAmount,
+            String productName,
+            List<String> lensOptionTypes,
+            LocalDateTime createdAt
+    ) {
+        this(orderNumber, status, totalAmount, productName, lensOptionTypes, createdAt, "PENDING_REVIEW");
+    }
+}

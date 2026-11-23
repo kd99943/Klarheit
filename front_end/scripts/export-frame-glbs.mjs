@@ -4,6 +4,7 @@
  */
 import * as THREE from "three";
 import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
+import { mergeVertices } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -40,163 +41,324 @@ class FileReaderPolyfill {
 }
 globalThis.FileReader = FileReaderPolyfill;
 
-// Minimal canvas for texture generation in Node (use OffscreenCanvas or skia-less stub)
-// We generate maps via raw pixel data instead of DOM canvas.
-function makeDataTexture(w, h, paint) {
-  const data = new Uint8Array(w * h * 4);
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const i = (y * w + x) * 4;
-      const [r, g, b, a = 255] = paint(x, y, w, h);
-      data[i] = r;
-      data[i + 1] = g;
-      data[i + 2] = b;
-      data[i + 3] = a;
-    }
-  }
-  const tex = new THREE.DataTexture(data, w, h, THREE.RGBAFormat);
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.needsUpdate = true;
-  return tex;
-}
-
-function brushedMetalMaps(size = 256) {
-  // Deterministic-ish noise
-  const rough = makeDataTexture(size, size, (x, y) => {
-    const line = Math.sin(y * 1.7) * 0.5 + Math.sin(y * 0.31 + x * 0.01) * 0.3;
-    const n = (Math.sin(x * 12.9898 + y * 78.233) * 43758.5453) % 1;
-    const v = 100 + line * 40 + Math.abs(n) * 30;
-    return [v, v, v, 255];
-  });
-  rough.repeat.set(3, 3);
-  const nrm = makeDataTexture(size, size, (x, y) => {
-    const dy = Math.sin(y * 2.1) * 12;
-    return [128 + dy * 0.3, 128, 255, 255];
-  });
-  nrm.repeat.set(3, 3);
-  return { roughnessMap: rough, normalMap: nrm };
-}
-
-function acetateMaps(size = 128) {
-  const rough = makeDataTexture(size, size, (x, y) => {
-    const n = ((Math.sin(x * 3.1 + y * 1.7) + Math.sin(x * 0.7)) * 0.5 + 0.5) * 25;
-    return [28 + n, 28 + n, 28 + n, 255];
-  });
-  rough.repeat.set(2, 2);
-  return { roughnessMap: rough };
-}
-
-function tortoiseMap(size = 128) {
-  return makeDataTexture(size, size, (x, y) => {
-    const n1 = Math.sin(x * 0.15) * Math.sin(y * 0.18);
-    const n2 = Math.sin(x * 0.4 + 2) * Math.cos(y * 0.35);
-    const m = (n1 + n2) * 0.5 + 0.5;
-    const r = 40 + m * 140;
-    const g = 20 + m * 70;
-    const b = 10 + m * 25;
-    return [r, g, b, 255];
-  });
-}
-
-function lensCoatMap(size = 64) {
-  const tex = makeDataTexture(size, size, (x, y) => {
-    const t = (x / size + y / size) * 0.5;
-    const r = 10 + t * 40;
-    const g = 60 + t * 90;
-    const b = 70 + t * 80;
-    return [r, g, b, 255];
-  });
-  return tex;
-}
-
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = path.resolve(__dirname, "../public/models/frames");
+const LENS_X = 0.24;
 
-function roundedRect(shape, w, h, r) {
+// ── Silhouette Helpers ──────────────────────────────────────────────────────
+function roundedRect(path, w, h, r) {
   const x = -w / 2;
   const y = -h / 2;
   const rr = Math.min(r, w / 2, h / 2);
-  shape.moveTo(x + rr, y);
-  shape.lineTo(x + w - rr, y);
-  shape.quadraticCurveTo(x + w, y, x + w, y + rr);
-  shape.lineTo(x + w, y + h - rr);
-  shape.quadraticCurveTo(x + w, y + h, x + w - rr, y + h);
-  shape.lineTo(x + rr, y + h);
-  shape.quadraticCurveTo(x, y + h, x, y + h - rr);
-  shape.lineTo(x, y + rr);
-  shape.quadraticCurveTo(x, y, x + rr, y);
+  path.moveTo(x + rr, y);
+  path.lineTo(x + w - rr, y);
+  path.quadraticCurveTo(x + w, y, x + w, y + rr);
+  path.lineTo(x + w, y + h - rr);
+  path.quadraticCurveTo(x + w, y + h, x + w - rr, y + h);
+  path.lineTo(x + rr, y + h);
+  path.quadraticCurveTo(x, y + h, x, y + h - rr);
+  path.lineTo(x, y + rr);
+  path.quadraticCurveTo(x, y, x + rr, y);
+  path.closePath();
 }
 
-function oval(shape, rx, ry) {
-  shape.moveTo(0, ry);
-  shape.bezierCurveTo(rx * 0.55, ry, rx, ry * 0.55, rx, 0);
-  shape.bezierCurveTo(rx, -ry * 0.55, rx * 0.55, -ry, 0, -ry);
-  shape.bezierCurveTo(-rx * 0.55, -ry, -rx, -ry * 0.55, -rx, 0);
-  shape.bezierCurveTo(-rx, ry * 0.55, -rx * 0.55, ry, 0, ry);
+/**
+ * Asymmetric Boston/Panto silhouette matching aero_x1.png.
+ * `side` is -1 for left lens, +1 for right lens so nasal/temporal contours mirror across x=0.
+ */
+function aeroPantoAt(path, cx, cy, rx, ry, side = 1) {
+  const s = side;
+  // Start at top-center of lens brow
+  path.moveTo(cx + s * rx * 0.05, cy + ry * 0.98);
+  // Brow to temporal (outer) top corner — flatter, wider upper-outer sweep
+  path.bezierCurveTo(
+    cx + s * rx * 0.56, cy + ry * 0.99,
+    cx + s * rx * 0.94, cy + ry * 0.84,
+    cx + s * rx * 0.99, cy + ry * 0.36
+  );
+  // Temporal cheek down to bottom-outer curve
+  path.bezierCurveTo(
+    cx + s * rx * 1.02, cy - ry * 0.22,
+    cx + s * rx * 0.72, cy - ry * 0.88,
+    cx + s * rx * 0.08, cy - ry * 0.98
+  );
+  // Bottom curve to nasal (inner) cheek — tapers inward toward bridge
+  path.bezierCurveTo(
+    cx - s * rx * 0.54, cy - ry * 0.98,
+    cx - s * rx * 0.94, cy - ry * 0.44,
+    cx - s * rx * 0.96, cy + ry * 0.16
+  );
+  // Nasal upper shoulder back to top brow
+  path.bezierCurveTo(
+    cx - s * rx * 0.98, cy + ry * 0.68,
+    cx - s * rx * 0.52, cy + ry * 0.97,
+    cx + s * rx * 0.05, cy + ry * 0.98
+  );
+  path.closePath();
 }
 
-function pantoLens(shape, rx, ry) {
-  shape.moveTo(-rx * 0.58, ry * 0.92);
-  shape.bezierCurveTo(-rx * 0.2, ry * 1.04, rx * 0.52, ry * 1.02, rx * 0.88, ry * 0.8);
-  shape.bezierCurveTo(rx * 1.04, ry * 0.56, rx * 0.98, -ry * 0.36, rx * 0.72, -ry * 0.78);
-  shape.bezierCurveTo(rx * 0.4, -ry * 1.05, -rx * 0.4, -ry * 1.05, -rx * 0.72, -ry * 0.78);
-  shape.bezierCurveTo(-rx * 0.98, -ry * 0.36, -rx * 1.04, ry * 0.56, -rx * 0.88, ry * 0.8);
-  shape.bezierCurveTo(-rx * 0.52, ry * 1.02, -rx * 0.2, ry * 1.04, -rx * 0.58, ry * 0.92);
+/**
+ * Round-panto silhouette matching orbit_t4.png (round with slightly flatter top brow).
+ */
+function orbitRoundAt(path, cx, cy, rx, ry) {
+  path.moveTo(cx, cy + ry * 0.96);
+  path.bezierCurveTo(cx + rx * 0.58, cy + ry * 0.96, cx + rx, cy + ry * 0.54, cx + rx, cy - ry * 0.02);
+  path.bezierCurveTo(cx + rx, cy - ry * 0.58, cx + rx * 0.56, cy - ry, cx, cy - ry);
+  path.bezierCurveTo(cx - rx * 0.56, cy - ry, cx - rx, cy - ry * 0.58, cx - rx, cy - ry * 0.02);
+  path.bezierCurveTo(cx - rx, cy + ry * 0.54, cx - rx * 0.58, cy + ry * 0.96, cx, cy + ry * 0.96);
+  path.closePath();
+}
+
+/**
+ * Trapezoidal Wellington lens opening matching monolith_02.png.
+ * Wider at top, tapered at bottom, with smooth rounded corners.
+ */
+function monolithLensAt(path, cx, cy, rx, ry, side = 1) {
+  const s = side;
+  const topIn = -rx * 0.88;
+  const topOut = rx * 0.96;
+  const botOut = rx * 0.82;
+  const botIn = -rx * 0.76;
+  path.moveTo(cx + s * topIn * 0.5, cy + ry * 0.96);
+  // Top brow edge to outer-top corner
+  path.bezierCurveTo(
+    cx + s * topOut * 0.65, cy + ry * 0.98,
+    cx + s * topOut, cy + ry * 0.92,
+    cx + s * topOut, cy + ry * 0.52
+  );
+  // Slanted outer edge down to bottom-outer corner
+  path.bezierCurveTo(
+    cx + s * topOut * 0.98, cy - ry * 0.15,
+    cx + s * botOut * 1.04, cy - ry * 0.92,
+    cx + s * botOut * 0.58, cy - ry * 0.96
+  );
+  // Flat-ish bottom edge to bottom-inner corner
+  path.lineTo(cx + s * botIn * 0.55, cy - ry * 0.96);
+  path.bezierCurveTo(
+    cx + s * botIn * 0.98, cy - ry * 0.92,
+    cx + s * topIn * 0.95, cy - ry * 0.25,
+    cx + s * topIn, cy + ry * 0.38
+  );
+  // Inner nasal edge up to top-inner corner
+  path.bezierCurveTo(
+    cx + s * topIn * 1.02, cy + ry * 0.88,
+    cx + s * topIn * 0.82, cy + ry * 0.95,
+    cx + s * topIn * 0.5, cy + ry * 0.96
+  );
+  path.closePath();
+}
+
+/**
+ * Continuous one-piece Wellington acetate front (MONOLITH 02) matching monolith_02.png:
+ * - Stepped-down horizontal top bridge
+ * - Crisp endpiece lugs that step inward cleanly onto the slanted lower cheek
+ * - Uniform rim thickness around the trapezoidal Wellington lenses
+ */
+function drawMonolithFrontOutline(shape) {
+  // Center of stepped-down top bridge
+  shape.moveTo(0, 0.108);
+  shape.lineTo(0.042, 0.108);
+  // Step up to bold horizontal brow line
+  shape.bezierCurveTo(0.064, 0.108, 0.072, 0.140, 0.105, 0.142);
+  shape.lineTo(0.448, 0.138);
+  // Right outer endpiece lug (top-outer corner)
+  shape.quadraticCurveTo(0.482, 0.137, 0.484, 0.118);
+  shape.lineTo(0.482, 0.036);
+  // Crisp step-in from lug to slanted outer rim wall
+  shape.quadraticCurveTo(0.480, 0.018, 0.446, 0.012);
+  // Slanted outer cheek down to bottom-outer corner
+  shape.bezierCurveTo(0.436, -0.065, 0.422, -0.138, 0.376, -0.146);
+  shape.lineTo(0.142, -0.146);
+  // Slanted inner nasal wall up to saddle bridge arch
+  shape.bezierCurveTo(0.096, -0.142, 0.074, -0.075, 0.056, 0.012);
+  shape.bezierCurveTo(0.044, 0.054, 0.024, 0.064, 0, 0.064);
+  // Left saddle bridge arch & inner nasal wall
+  shape.bezierCurveTo(-0.024, 0.064, -0.044, 0.054, -0.056, 0.012);
+  shape.bezierCurveTo(-0.074, -0.075, -0.096, -0.142, -0.142, -0.146);
+  shape.lineTo(-0.376, -0.146);
+  // Left slanted outer cheek up to lug step
+  shape.bezierCurveTo(-0.422, -0.138, -0.436, -0.065, -0.446, 0.012);
+  shape.quadraticCurveTo(-0.480, 0.018, -0.482, 0.036);
+  shape.lineTo(-0.484, 0.118);
+  shape.quadraticCurveTo(-0.482, 0.137, -0.448, 0.138);
+  shape.lineTo(-0.105, 0.142);
+  shape.bezierCurveTo(-0.072, 0.140, -0.064, 0.108, -0.042, 0.108);
+  shape.lineTo(0, 0.108);
   shape.closePath();
 }
 
-function rimGeom(drawOuter, drawInner, depth, bevel) {
+/**
+ * Softly rounded trapezoidal Panto lens opening matching lucent_v1.png.
+ */
+function lucentLensAt(path, cx, cy, rx, ry, side = 1) {
+  const s = side;
+  path.moveTo(cx, cy + ry * 0.96);
+  // Top brow to outer-top corner
+  path.bezierCurveTo(
+    cx + s * rx * 0.58, cy + ry * 0.98,
+    cx + s * rx * 0.98, cy + ry * 0.80,
+    cx + s * rx * 0.98, cy + ry * 0.28
+  );
+  // Outer cheek to rounded bottom
+  path.bezierCurveTo(
+    cx + s * rx * 0.96, cy - ry * 0.42,
+    cx + s * rx * 0.66, cy - ry * 0.96,
+    cx + s * rx * 0.04, cy - ry * 0.98
+  );
+  // Bottom to inner nasal cheek
+  path.bezierCurveTo(
+    cx - s * rx * 0.58, cy - ry * 0.98,
+    cx - s * rx * 0.92, cy - ry * 0.46,
+    cx - s * rx * 0.92, cy + ry * 0.22
+  );
+  // Inner nasal shoulder to top brow
+  path.bezierCurveTo(
+    cx - s * rx * 0.92, cy + ry * 0.76,
+    cx - s * rx * 0.52, cy + ry * 0.95,
+    cx, cy + ry * 0.96
+  );
+  path.closePath();
+}
+
+/**
+ * Continuous one-piece Panto crystal acetate front (LUCENT V1) matching lucent_v1.png:
+ * - Stepped-down bridge top, keyhole bridge arch, uniform slender rim border, upswept lugs
+ */
+function drawLucentFrontOutline(shape) {
+  shape.moveTo(0, 0.102);
+  shape.lineTo(0.038, 0.102);
+  // Step up onto arched panto brow
+  shape.bezierCurveTo(0.058, 0.104, 0.072, 0.146, 0.165, 0.156);
+  shape.bezierCurveTo(0.285, 0.164, 0.395, 0.146, 0.468, 0.122);
+  // Right upswept endpiece lug
+  shape.quadraticCurveTo(0.486, 0.114, 0.486, 0.088);
+  shape.lineTo(0.484, 0.042);
+  shape.quadraticCurveTo(0.482, 0.022, 0.448, 0.012);
+  // Slender outer cheek & rounded panto bottom (uniform border around lens)
+  shape.bezierCurveTo(0.438, -0.075, 0.378, -0.158, 0.246, -0.162);
+  shape.bezierCurveTo(0.132, -0.162, 0.076, -0.095, 0.056, -0.008);
+  // Sculpted keyhole bridge arch
+  shape.bezierCurveTo(0.044, 0.048, 0.022, 0.064, 0, 0.064);
+  shape.bezierCurveTo(-0.022, 0.064, -0.044, 0.048, -0.056, -0.008);
+  // Left bottom & outer cheek
+  shape.bezierCurveTo(-0.076, -0.095, -0.132, -0.162, -0.246, -0.162);
+  shape.bezierCurveTo(-0.378, -0.158, -0.438, -0.075, -0.448, 0.012);
+  shape.quadraticCurveTo(-0.482, 0.022, -0.484, 0.042);
+  shape.lineTo(-0.486, 0.088);
+  shape.quadraticCurveTo(-0.486, 0.114, -0.468, 0.122);
+  shape.bezierCurveTo(-0.395, 0.146, -0.285, 0.164, -0.165, 0.156);
+  shape.bezierCurveTo(-0.072, 0.146, -0.058, 0.104, -0.038, 0.102);
+  shape.lineTo(0, 0.102);
+  shape.closePath();
+}
+
+function smoothAndIndexGeometry(geom) {
+  const pos = geom.attributes.position;
+  const uv = new Float32Array(pos.count * 2);
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    const z = pos.getZ(i);
+    uv[i * 2] = x * 2.0 + z * 0.5 + 0.5;
+    uv[i * 2 + 1] = y * 2.0 + z * 0.5 + 0.5;
+  }
+  geom.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
+  geom.deleteAttribute("normal");
+  const indexed = mergeVertices(geom, 1e-4);
+  indexed.computeVertexNormals();
+  return indexed;
+}
+
+/**
+ * Smooth spherical/cylindrical 4.5D base curve + face-form wrap + pantoscopic tilt.
+ * Zeroed at gx = ±LENS_X so lens centers remain anchored at z = 0.
+ */
+function applyOpticalCurvature(geom, xCenter = 0, wrapK = 0.075) {
+  const pos = geom.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    const z = pos.getZ(i);
+    const gx = x + xCenter;
+    const wrapZ = -wrapK * (gx * gx - LENS_X * LENS_X) - 0.032 * y * y;
+    const tiltZ = y * 0.055;
+    pos.setZ(i, z + wrapZ + tiltZ);
+  }
+  pos.needsUpdate = true;
+  return smoothAndIndexGeometry(geom);
+}
+
+function rimGeom(drawOuter, drawInner, depth, bevel, xCenter = 0) {
   const outer = new THREE.Shape();
   drawOuter(outer);
   const hole = new THREE.Path();
   drawInner(hole);
   outer.holes.push(hole);
-  return new THREE.ExtrudeGeometry(outer, {
+  const g = new THREE.ExtrudeGeometry(outer, {
     depth,
+    curveSegments: 28,
+    bevelEnabled: true,
+    bevelSegments: 4,
+    steps: 1,
+    bevelSize: bevel,
+    bevelThickness: bevel,
+  });
+  return applyOpticalCurvature(g, xCenter, 0.075);
+}
+
+function onePieceAcetateFrontGeom(drawFront, drawLeftHole, drawRightHole, depth, bevel) {
+  const outer = new THREE.Shape();
+  drawFront(outer);
+  const leftHole = new THREE.Path();
+  drawLeftHole(leftHole);
+  const rightHole = new THREE.Path();
+  drawRightHole(rightHole);
+  outer.holes.push(leftHole, rightHole);
+  const g = new THREE.ExtrudeGeometry(outer, {
+    depth,
+    curveSegments: 28,
     bevelEnabled: true,
     bevelSegments: 5,
     steps: 1,
     bevelSize: bevel,
     bevelThickness: bevel,
   });
+  return applyOpticalCurvature(g, 0, 0.08);
 }
 
-/** Slightly spherical optical lens (not a flat plate). */
-function lensGeom(draw, depth, bulge = 0.004) {
+/** Meniscus optical lens with spherical base-curve and edge bevel. */
+function lensGeom(draw, depth, bulge = 0.0055, xCenter = 0, wrapK = 0.075) {
   const s = new THREE.Shape();
   draw(s);
   const g = new THREE.ExtrudeGeometry(s, {
     depth,
+    curveSegments: 28,
     bevelEnabled: true,
-    bevelSegments: 4,
-    steps: 2,
+    bevelSegments: 3,
+    steps: 1,
     bevelSize: 0.0008,
     bevelThickness: 0.0008,
   });
-  // Soft center bulge via z displacement of front verts
   const pos = g.attributes.position;
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i);
     const y = pos.getY(i);
     const z = pos.getZ(i);
-    if (z > depth * 0.5) {
-      const r = Math.min(1, Math.hypot(x, y) / 0.2);
-      pos.setZ(i, z + bulge * (1 - r * r));
-    }
+    const r = Math.min(1, Math.hypot(x, y) / 0.2);
+    const meniscus = bulge * (1 - r * r);
+    pos.setZ(i, z + meniscus);
   }
-  pos.needsUpdate = true;
-  g.computeVertexNormals();
-  return g;
+  return applyOpticalCurvature(g, xCenter, wrapK);
 }
 
-function titanium(color = 0x9aa1aa) {
-  // Maps applied at runtime (Node exporter cannot process canvas maps)
+// ── Materials (matched by enhanceGlbMaterials at runtime) ───────────────────
+function titanium(color = 0xb8bec6) {
   return new THREE.MeshPhysicalMaterial({
     color,
     metalness: 1,
     roughness: 0.28,
-    clearcoat: 0.25,
-    clearcoatRoughness: 0.35,
+    clearcoat: 0.15,
+    clearcoatRoughness: 0.25,
     name: "titanium",
   });
 }
@@ -204,398 +366,805 @@ function titanium(color = 0x9aa1aa) {
 function blackAcetate(color = 0x121214) {
   return new THREE.MeshPhysicalMaterial({
     color,
-    metalness: 0.02,
-    roughness: 0.22,
-    clearcoat: 0.95,
-    clearcoatRoughness: 0.08,
+    metalness: 0,
+    roughness: 0.14,
+    clearcoat: 1,
+    clearcoatRoughness: 0.04,
     name: "acetate-black",
   });
 }
 
 function crystalMat() {
   return new THREE.MeshPhysicalMaterial({
-    color: 0xeef3f6,
+    color: 0xffffff,
     metalness: 0,
-    roughness: 0.04,
-    transmission: 0.9,
-    thickness: 0.12,
-    ior: 1.49,
+    roughness: 0.025,
+    transmission: 1,
+    thickness: 0.03,
+    ior: 1.52,
     transparent: true,
-    clearcoat: 0.75,
+    clearcoat: 1,
+    clearcoatRoughness: 0.03,
     name: "crystal",
   });
 }
 
-function sunLens(color = 0x1a2430) {
+function sunLens(color = 0x242b32) {
   return new THREE.MeshPhysicalMaterial({
     color,
-    metalness: 0.15,
-    roughness: 0.04,
+    metalness: 0,
+    roughness: 0,
     transparent: true,
-    opacity: 0.9,
-    transmission: 0.1,
-    thickness: 0.02,
-    ior: 1.52,
+    transmission: 1,
+    thickness: 0.014,
+    ior: 1.5,
     clearcoat: 1,
     name: "sun-lens",
   });
 }
 
-function opticalLens(color = 0xdce8f2) {
+function opticalLens(color = 0xffffff) {
   return new THREE.MeshPhysicalMaterial({
     color,
     metalness: 0,
-    roughness: 0.02,
+    roughness: 0,
     transparent: true,
-    opacity: 0.14,
-    transmission: 0.9,
-    thickness: 0.012,
-    ior: 1.52,
+    transmission: 1,
+    thickness: 0.014,
+    ior: 1.5,
     clearcoat: 1,
-    sheen: 0.55,
-    sheenColor: new THREE.Color("#5ec4b8"),
     name: "optical-lens",
-  });
-}
-
-function gold() {
-  return new THREE.MeshPhysicalMaterial({
-    color: 0xc9a227,
-    metalness: 1,
-    roughness: 0.3,
-    name: "gold",
   });
 }
 
 function tortoise() {
   return new THREE.MeshPhysicalMaterial({
-    color: 0x4a3220,
-    metalness: 0.05,
-    roughness: 0.38,
-    clearcoat: 0.7,
+    color: 0x6b3a18,
+    metalness: 0,
+    roughness: 0.18,
+    clearcoat: 1,
+    clearcoatRoughness: 0.06,
     name: "tortoise",
   });
 }
 
-const LENS_X = 0.24;
+function amberAcetate(color = 0xb46a28) {
+  return new THREE.MeshPhysicalMaterial({
+    color,
+    metalness: 0,
+    roughness: 0.08,
+    transmission: 0.52,
+    thickness: 0.026,
+    ior: 1.5,
+    transparent: true,
+    clearcoat: 1,
+    clearcoatRoughness: 0.04,
+    name: "amber-acetate",
+  });
+}
 
-/** Hinge barrel + screw head detail. */
-function addHinge(group, metal, x, y = 0.01) {
+function goldCore(color = 0xd8b46c) {
+  return new THREE.MeshPhysicalMaterial({
+    color,
+    metalness: 1,
+    roughness: 0.24,
+    name: "gold",
+  });
+}
+
+function aviatorTeardropAt(path, cx, cy, rx, ry, side = 1) {
+  const s = side;
+  path.moveTo(cx, cy + ry * 0.94);
+  path.bezierCurveTo(
+    cx + s * rx * 0.58, cy + ry * 0.95,
+    cx + s * rx * 0.96, cy + ry * 0.80,
+    cx + s * rx * 0.98, cy + ry * 0.32
+  );
+  path.bezierCurveTo(
+    cx + s * rx * 1.02, cy - ry * 0.35,
+    cx + s * rx * 0.76, cy - ry * 1.04,
+    cx + s * rx * 0.18, cy - ry * 1.06
+  );
+  path.bezierCurveTo(
+    cx - s * rx * 0.42, cy - ry * 1.02,
+    cx - s * rx * 0.90, cy - ry * 0.36,
+    cx - s * rx * 0.94, cy + ry * 0.24
+  );
+  path.bezierCurveTo(
+    cx - s * rx * 0.96, cy + ry * 0.74,
+    cx - s * rx * 0.52, cy + ry * 0.93,
+    cx, cy + ry * 0.94
+  );
+  path.closePath();
+}
+
+function catEyeLensAt(path, cx, cy, rx, ry, side = 1) {
+  const s = side;
+  path.moveTo(cx - s * rx * 0.10, cy + ry * 0.86);
+  path.bezierCurveTo(
+    cx + s * rx * 0.46, cy + ry * 0.94,
+    cx + s * rx * 0.96, cy + ry * 1.04,
+    cx + s * rx * 1.00, cy + ry * 0.56
+  );
+  path.bezierCurveTo(
+    cx + s * rx * 0.94, cy - ry * 0.18,
+    cx + s * rx * 0.58, cy - ry * 0.94,
+    cx - s * rx * 0.04, cy - ry * 0.98
+  );
+  path.bezierCurveTo(
+    cx - s * rx * 0.62, cy - ry * 0.96,
+    cx - s * rx * 0.92, cy - ry * 0.36,
+    cx - s * rx * 0.90, cy + ry * 0.24
+  );
+  path.bezierCurveTo(
+    cx - s * rx * 0.86, cy + ry * 0.72,
+    cx - s * rx * 0.52, cy + ry * 0.84,
+    cx - s * rx * 0.10, cy + ry * 0.86
+  );
+  path.closePath();
+}
+
+function drawVelvetFrontOutline(shape) {
+  shape.moveTo(0, 0.088);
+  shape.lineTo(0.042, 0.088);
+  shape.bezierCurveTo(0.072, 0.094, 0.130, 0.146, 0.245, 0.154);
+  shape.bezierCurveTo(0.355, 0.162, 0.448, 0.174, 0.494, 0.158);
+  shape.quadraticCurveTo(0.508, 0.152, 0.502, 0.122);
+  shape.lineTo(0.486, 0.056);
+  shape.bezierCurveTo(0.464, -0.030, 0.404, -0.152, 0.240, -0.162);
+  shape.bezierCurveTo(0.126, -0.162, 0.074, -0.095, 0.056, -0.006);
+  shape.bezierCurveTo(0.044, 0.044, 0.022, 0.056, 0, 0.056);
+  shape.bezierCurveTo(-0.022, 0.056, -0.044, 0.044, -0.056, -0.006);
+  shape.bezierCurveTo(-0.074, -0.095, -0.126, -0.162, -0.240, -0.162);
+  shape.bezierCurveTo(-0.404, -0.152, -0.464, -0.030, -0.486, 0.056);
+  shape.lineTo(-0.502, 0.122);
+  shape.quadraticCurveTo(-0.508, 0.152, -0.494, 0.158);
+  shape.bezierCurveTo(-0.448, 0.174, -0.355, 0.162, -0.245, 0.154);
+  shape.bezierCurveTo(-0.130, 0.146, -0.072, 0.094, -0.042, 0.088);
+  shape.lineTo(0, 0.088);
+  shape.closePath();
+}
+
+function hexGeometricAt(path, cx, cy, rx, ry) {
+  const pts = [
+    [cx - 0.62 * rx, cy + 0.96 * ry],
+    [cx + 0.62 * rx, cy + 0.96 * ry],
+    [cx + 1.00 * rx, cy + 0.12 * ry],
+    [cx + 0.58 * rx, cy - 0.96 * ry],
+    [cx - 0.58 * rx, cy - 0.96 * ry],
+    [cx - 1.00 * rx, cy + 0.12 * ry],
+  ];
+  const f = 0.14;
+  for (let i = 0; i < pts.length; i++) {
+    const prev = pts[(i - 1 + pts.length) % pts.length];
+    const curr = pts[i];
+    const next = pts[(i + 1) % pts.length];
+    const ax = curr[0] + (prev[0] - curr[0]) * f;
+    const ay = curr[1] + (prev[1] - curr[1]) * f;
+    const bx = curr[0] + (next[0] - curr[0]) * f;
+    const by = curr[1] + (next[1] - curr[1]) * f;
+    if (i === 0) {
+      path.moveTo(ax, ay);
+    } else {
+      path.lineTo(ax, ay);
+    }
+    path.quadraticCurveTo(curr[0], curr[1], bx, by);
+  }
+  path.closePath();
+}
+
+function narrowRectLensAt(path, cx, cy, rx, ry, side = 1) {
+  const s = side;
+  const topIn = -rx * 0.84;
+  const topOut = rx * 0.96;
+  const botOut = rx * 0.88;
+  const botIn = -rx * 0.70;
+  path.moveTo(cx + s * topIn * 0.52, cy + ry * 0.98);
+  path.bezierCurveTo(
+    cx + s * topOut * 0.68, cy + ry * 0.99,
+    cx + s * topOut, cy + ry * 0.94,
+    cx + s * topOut, cy + ry * 0.50
+  );
+  path.bezierCurveTo(
+    cx + s * topOut * 0.99, cy - ry * 0.14,
+    cx + s * botOut * 1.03, cy - ry * 0.92,
+    cx + s * botOut * 0.58, cy - ry * 0.98
+  );
+  path.lineTo(cx + s * botIn * 0.54, cy - ry * 0.98);
+  path.bezierCurveTo(
+    cx + s * botIn * 0.98, cy - ry * 0.92,
+    cx + s * topIn * 0.92, cy - ry * 0.24,
+    cx + s * topIn, cy + ry * 0.42
+  );
+  path.bezierCurveTo(
+    cx + s * topIn * 1.02, cy + ry * 0.90,
+    cx + s * topIn * 0.84, cy + ry * 0.97,
+    cx + s * topIn * 0.52, cy + ry * 0.98
+  );
+  path.closePath();
+}
+
+function drawAmberFrontOutline(shape) {
+  shape.moveTo(0, 0.098);
+  shape.lineTo(0.044, 0.098);
+  shape.bezierCurveTo(0.064, 0.098, 0.074, 0.121, 0.106, 0.123);
+  shape.lineTo(0.452, 0.121);
+  shape.quadraticCurveTo(0.480, 0.119, 0.482, 0.098);
+  shape.lineTo(0.480, 0.044);
+  shape.quadraticCurveTo(0.478, 0.026, 0.440, 0.020);
+  shape.bezierCurveTo(0.432, -0.056, 0.422, -0.116, 0.390, -0.122);
+  shape.lineTo(0.126, -0.122);
+  shape.bezierCurveTo(0.090, -0.116, 0.072, -0.052, 0.058, 0.020);
+  shape.bezierCurveTo(0.044, 0.056, 0.022, 0.066, 0, 0.066);
+  shape.bezierCurveTo(-0.022, 0.066, -0.044, 0.056, -0.058, 0.020);
+  shape.bezierCurveTo(-0.072, -0.052, -0.090, -0.116, -0.126, -0.122);
+  shape.lineTo(-0.390, -0.122);
+  shape.bezierCurveTo(-0.422, -0.116, -0.432, -0.056, -0.440, 0.020);
+  shape.quadraticCurveTo(-0.478, 0.026, -0.480, 0.044);
+  shape.lineTo(-0.482, 0.098);
+  shape.quadraticCurveTo(-0.480, 0.119, -0.452, 0.121);
+  shape.lineTo(-0.106, 0.123);
+  shape.bezierCurveTo(-0.074, 0.121, -0.064, 0.098, -0.044, 0.098);
+  shape.lineTo(0, 0.098);
+  shape.closePath();
+}
+
+// ── Shared Hardware & Ergonomic Temple Builders ─────────────────────────────
+function addHinge(group, metal, x, y = 0.015, z = -0.008) {
   const barrel = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.004, 0.004, 0.018, 12),
+    new THREE.CylinderGeometry(0.0038, 0.0038, 0.016, 12),
     metal
   );
   barrel.rotation.z = Math.PI / 2;
-  barrel.position.set(x, y, 0);
+  barrel.position.set(x, y, z);
   group.add(barrel);
 
-  // Screw head
   const screw = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.0025, 0.0025, 0.003, 10),
+    new THREE.CylinderGeometry(0.0022, 0.0022, 0.004, 10),
     metal
   );
-  screw.rotation.z = Math.PI / 2;
-  screw.position.set(x + Math.sign(x) * 0.008, y, 0);
+  screw.position.set(x, y + 0.008, z);
   group.add(screw);
-
-  // Screw slot
-  const slot = new THREE.Mesh(
-    new THREE.BoxGeometry(0.0012, 0.0015, 0.0035),
-    new THREE.MeshPhysicalMaterial({ color: 0x222222, metalness: 0.8, roughness: 0.5 })
-  );
-  slot.position.set(x + Math.sign(x) * 0.008, y, 0);
-  group.add(slot);
 }
 
 /**
- * Windsor / rimlock wire: thin tube following the outer rim outline.
- * Signature of fine metal frames.
+ * S-curved gooseneck pad arms with metallic/silicone nose pads.
  */
-function addWindsorWire(group, metal, drawOuter, z = 0) {
-  // Sample oval/rounded outline via Shape points is hard; use ellipse for ovals
-  // and a rounded-rect path approximated by a tube along a CatmullRom.
-  const pts = [];
-  // Generic: sample outer extents from a temporary shape bounding approach
-  // We'll pass explicit radii instead via closure
-  void drawOuter;
-  void pts;
-  void z;
-  void metal;
-  void group;
+function addGooseneckPads(group, metalMat, padMat, armX = 0.074, yTop = 0.004) {
+  for (const side of [-1, 1]) {
+    const armCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(side * armX, yTop, 0.002),
+      new THREE.Vector3(side * (armX - 0.008), yTop - 0.014, -0.016),
+      new THREE.Vector3(side * (armX + 0.006), yTop - 0.044, -0.028),
+      new THREE.Vector3(side * (armX + 0.018), yTop - 0.066, -0.024),
+    ]);
+    const arm = new THREE.Mesh(new THREE.TubeGeometry(armCurve, 20, 0.0020, 8, false), metalMat);
+    group.add(arm);
+
+    const padGeo = new THREE.CapsuleGeometry(0.0095, 0.022, 8, 14);
+    padGeo.scale(0.38, 1.0, 0.68);
+    const pad = new THREE.Mesh(padGeo, padMat);
+    pad.rotation.set(0.28, side * 0.26, side * 0.32);
+    pad.position.set(side * (armX + 0.022), yTop - 0.070, -0.024);
+    group.add(pad);
+  }
 }
 
-function addWindsorRoundRect(group, metal, w, h, r, z = 0.004) {
-  const shape = new THREE.Shape();
-  roundedRect(shape, w, h, r);
-  const pts2 = shape.getPoints(64).map((p) => new THREE.Vector3(p.x, p.y, z));
-  // close loop
-  if (pts2.length) pts2.push(pts2[0].clone());
-  const path = new THREE.CatmullRomCurve3(pts2, true);
-  const geo = new THREE.TubeGeometry(path, 80, 0.0014, 6, true);
-  const mesh = new THREE.Mesh(geo, metal);
-  group.add(mesh);
-  return mesh;
+/**
+ * All-titanium wire temple with sculpted titanium paddle ear tip (matches aero_x1.png).
+ */
+function addAeroTitaniumTemple(group, metal, side, x = 0.452, y = 0.024, zStart = -0.012) {
+  const shaftCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(side * x, y, zStart),
+    new THREE.Vector3(side * (x + 0.012), y + 0.001, zStart - 0.16),
+    new THREE.Vector3(side * (x + 0.015), y - 0.002, zStart - 0.34),
+  ]);
+  group.add(new THREE.Mesh(new THREE.TubeGeometry(shaftCurve, 24, 0.0028, 10, false), metal));
+
+  // Tapered flat-oval titanium paddle tip with ergonomic ear bend
+  const tipCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(side * (x + 0.015), y - 0.002, zStart - 0.33),
+    new THREE.Vector3(side * (x + 0.012), y - 0.010, zStart - 0.43),
+    new THREE.Vector3(side * (x + 0.002), y - 0.046, zStart - 0.51),
+    new THREE.Vector3(side * (x - 0.010), y - 0.088, zStart - 0.565),
+  ]);
+  const paddleGeo = new THREE.TubeGeometry(tipCurve, 24, 0.0050, 10, false);
+  const pos = paddleGeo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const px = pos.getX(i);
+    const center = side * (x + 0.006);
+    pos.setX(i, center + (px - center) * 0.42);
+  }
+  pos.needsUpdate = true;
+  paddleGeo.computeVertexNormals();
+  group.add(new THREE.Mesh(paddleGeo, metal));
 }
 
-function addTempleWire(group, mat, x, len = 0.58) {
-  const g = new THREE.CylinderGeometry(0.0032, 0.0024, len, 16);
-  g.rotateX(Math.PI / 2);
-  g.translate(0, 0, -len / 2);
-  const m = new THREE.Mesh(g, mat);
-  m.position.set(x, 0.01, 0);
-  m.rotation.y = Math.sign(x) * 0.09;
-  group.add(m);
-  return m;
+/**
+ * Metal wire temple with curved tortoiseshell drop-end sleeve (matches orbit_t4.png).
+ */
+function addOrbitTempleWithTortoiseTip(group, metal, tipMat, side, x = 0.436, y = 0.016, zStart = -0.010) {
+  const shaftCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(side * x, y, zStart),
+    new THREE.Vector3(side * (x + 0.010), y + 0.001, zStart - 0.18),
+    new THREE.Vector3(side * (x + 0.014), y - 0.002, zStart - 0.36),
+  ]);
+  group.add(new THREE.Mesh(new THREE.TubeGeometry(shaftCurve, 22, 0.0026, 10, false), metal));
+
+  const sleeveCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(side * (x + 0.014), y - 0.002, zStart - 0.35),
+    new THREE.Vector3(side * (x + 0.012), y - 0.012, zStart - 0.44),
+    new THREE.Vector3(side * (x + 0.002), y - 0.052, zStart - 0.52),
+    new THREE.Vector3(side * (x - 0.008), y - 0.094, zStart - 0.57),
+  ]);
+  const sleeveGeo = new THREE.TubeGeometry(sleeveCurve, 24, 0.0054, 10, false);
+  group.add(new THREE.Mesh(sleeveGeo, tipMat));
 }
 
-function addTempleSlab(group, mat, x, w, h, len = 0.58) {
+/**
+ * Ergonomic sculpted acetate temple slab with step-down profile and drop-end ear bend.
+ * Optionally embeds a metallic core wire + internal hinge plate (for LUCENT V1).
+ */
+function addSculptedAcetateTemple(group, mat, side, xStart, yStart, zStart, w, h, len = 0.58, coreMat = null) {
   const section = new THREE.Shape();
-  roundedRect(section, w, h, 0.006);
-  const g = new THREE.ExtrudeGeometry(section, {
+  roundedRect(section, w, h, Math.min(w * 0.42, 0.005));
+  const geom = new THREE.ExtrudeGeometry(section, {
     depth: len,
+    curveSegments: 16,
     bevelEnabled: true,
-    bevelSegments: 4,
-    steps: 1,
-    bevelSize: 0.0018,
-    bevelThickness: 0.0018,
+    bevelSegments: 3,
+    steps: 18,
+    bevelSize: 0.0014,
+    bevelThickness: 0.0014,
   });
-  g.translate(0, 0, -len / 2);
-  const m = new THREE.Mesh(g, mat);
-  m.position.set(x, 0.015, 0);
-  m.rotation.y = Math.sign(x) * 0.07;
-  group.add(m);
-  return m;
+
+  const pos = geom.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const lx = pos.getX(i);
+    const ly = pos.getY(i);
+    const lz = pos.getZ(i);
+    const t = THREE.MathUtils.clamp(lz / len, 0, 1);
+
+    const heightScale =
+      t < 0.22
+        ? 1.0
+        : t < 0.66
+          ? THREE.MathUtils.lerp(1.0, 0.64, (t - 0.22) / 0.44)
+          : THREE.MathUtils.lerp(0.64, 0.84, (t - 0.66) / 0.34);
+
+    const bowX = side * (Math.sin(t * Math.PI * 0.82) * 0.014 - (t > 0.68 ? Math.pow((t - 0.68) / 0.32, 1.6) * 0.020 : 0));
+    const dropY = t > 0.62 ? -Math.pow((t - 0.62) / 0.38, 1.85) * 0.095 : 0;
+
+    pos.setX(i, side * xStart + lx + bowX);
+    pos.setY(i, yStart + ly * heightScale + dropY);
+    pos.setZ(i, zStart - lz);
+  }
+  pos.needsUpdate = true;
+  // Reflecting Z reverses orientation; restore outward winding before computing normals.
+  const indices = [];
+  for (let i = 0; i < pos.count; i += 3) indices.push(i, i + 2, i + 1);
+  geom.setIndex(indices);
+  group.add(new THREE.Mesh(smoothAndIndexGeometry(geom), mat));
+
+  if (coreMat) {
+    const corePts = [];
+    const segs = 18;
+    for (let s = 0; s <= segs; s++) {
+      const t = 0.02 + (s / segs) * 0.90;
+      const bowX = side * (Math.sin(t * Math.PI * 0.82) * 0.014 - (t > 0.68 ? Math.pow((t - 0.68) / 0.32, 1.6) * 0.020 : 0));
+      const dropY = t > 0.62 ? -Math.pow((t - 0.62) / 0.38, 1.85) * 0.095 : 0;
+      corePts.push(new THREE.Vector3(side * xStart + bowX, yStart + dropY, zStart - t * len));
+    }
+    const coreCurve = new THREE.CatmullRomCurve3(corePts);
+    const coreGeo = new THREE.TubeGeometry(coreCurve, 24, 0.0028, 10, false);
+    group.add(new THREE.Mesh(coreGeo, coreMat));
+  }
 }
 
+// ── Frame 1: AERO X1 (54-17-140) — Brushed Grade 5 Titanium Panto ──────────
 function buildAero() {
   const group = new THREE.Group();
   group.name = "AERO_X1";
-  const metal = titanium();
+  const metal = titanium(0xc1bab1);
   const glass = opticalLens();
-  const tip = tortoise();
-
-  const rim = rimGeom(
-    (s) => pantoLens(s, 0.214, 0.188),
-    (p) => pantoLens(p, 0.183, 0.169),
-    0.007,
-    0.0006
-  );
-  const lens = lensGeom((s) => pantoLens(s, 0.185, 0.171), 0.006, 0.005);
 
   for (const side of [-1, 1]) {
-    const r = new THREE.Mesh(rim, metal);
-    r.position.set(side * LENS_X, 0, 0);
-    group.add(r);
-    const l = new THREE.Mesh(lens, glass);
-    l.position.set(side * LENS_X, 0, 0.002);
-    group.add(l);
-
-  }
-
-  // Arched keyhole bridge
-  const bridgeCurve = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(-0.12, 0.015, 0.004),
-    new THREE.Vector3(-0.04, 0.072, 0.012),
-    new THREE.Vector3(0.04, 0.072, 0.012),
-    new THREE.Vector3(0.12, 0.015, 0.004),
-  ]);
-  group.add(
-    new THREE.Mesh(new THREE.TubeGeometry(bridgeCurve, 32, 0.0032, 10, false), metal)
-  );
-
-  // Endpieces
-  for (const side of [-1, 1]) {
-    const end = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.02, 0.01), metal);
-    end.position.set(side * 0.445, 0.01, -0.002);
-    group.add(end);
-    addHinge(group, metal, side * 0.455);
-    addTempleWire(group, metal, side * 0.458);
-    const tipGeom = new THREE.CapsuleGeometry(0.005, 0.07, 6, 12);
-    tipGeom.rotateX(Math.PI / 2);
-    const t = new THREE.Mesh(tipGeom, tip);
-    t.position.set(side * 0.472, 0.012, -0.525);
-    group.add(t);
-  }
-
-  // Pad arms
-  const padMat = new THREE.MeshPhysicalMaterial({
-    color: 0xf5f2eb,
-    transparent: true,
-    opacity: 0.8,
-    roughness: 0.4,
-    transmission: 0.35,
-  });
-  for (const side of [-1, 1]) {
-    const arm = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.0018, 0.0018, 0.06, 10),
-      metal
+    const rim = rimGeom(
+      (s) => aeroPantoAt(s, 0, 0, 0.194, 0.164, side),
+      (p) => aeroPantoAt(p, 0, 0, 0.186, 0.156, side),
+      0.012,
+      0.0012,
+      side * LENS_X
     );
-    arm.rotation.set(0.45, 0, side * 0.7);
-    arm.position.set(side * 0.105, -0.06, -0.035);
-    group.add(arm);
-    const pad = new THREE.Mesh(new THREE.SphereGeometry(0.018, 16, 12), padMat);
-    pad.scale.set(0.35, 1.15, 0.3);
-    pad.position.set(side * 0.127, -0.088, -0.048);
-    group.add(pad);
+    const rMesh = new THREE.Mesh(rim, metal);
+    rMesh.position.set(side * LENS_X, 0, 0);
+    group.add(rMesh);
+
+    const lens = lensGeom((s) => aeroPantoAt(s, 0, 0, 0.187, 0.157, side), 0.005, 0.0055, side * LENS_X);
+    const lMesh = new THREE.Mesh(lens, glass);
+    lMesh.position.set(side * LENS_X, 0, 0.003);
+    group.add(lMesh);
   }
+
+  // Sculpted arched metal bridge connecting the nasal shoulders cleanly
+  const bridgeCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-0.056, 0.026, 0.009),
+    new THREE.Vector3(-0.026, 0.044, 0.016),
+    new THREE.Vector3(0.026, 0.044, 0.016),
+    new THREE.Vector3(0.056, 0.026, 0.009),
+  ]);
+  group.add(new THREE.Mesh(new THREE.TubeGeometry(bridgeCurve, 28, 0.0036, 12, false), metal));
+
+  // Ribbed horizontal titanium endpieces + hinges + all-titanium paddle temples
+  for (const side of [-1, 1]) {
+    for (const dy of [-0.0035, 0, 0.0035]) {
+      const rib = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.0022, 0.008), metal);
+      rib.position.set(side * 0.444, 0.026 + dy, -0.004);
+      group.add(rib);
+    }
+    addHinge(group, metal, side * 0.454, 0.026, -0.010);
+    addAeroTitaniumTemple(group, metal, side, 0.454, 0.026, -0.010);
+  }
+
+  addGooseneckPads(group, metal, metal, 0.072, 0.002);
   return group;
 }
 
+// ── Frame 2: MONOLITH 02 (50-20-145) — Architectural Black Acetate ─────────
 function buildMonolith() {
   const group = new THREE.Group();
   group.name = "MONOLITH_02";
-  const acetate = blackAcetate();
-  const glass = opticalLens(0xe8f4f6);
-  const g = gold();
+  const acetate = blackAcetate(0x121214);
+  const glass = opticalLens();
+  const hardware = titanium(0xd4d8de);
 
-  // Thicker front with polished bevel
-  const rim = rimGeom(
-    (s) => roundedRect(s, 0.44, 0.30, 0.05),
-    (p) => roundedRect(p, 0.35, 0.24, 0.034),
-    0.052,
-    0.004
+  // Continuous CNC-milled one-piece Wellington front (realistic ~4.3mm Z thickness)
+  const frontGeo = onePieceAcetateFrontGeom(
+    drawMonolithFrontOutline,
+    (hole) => monolithLensAt(hole, -LENS_X, -0.004, 0.172, 0.116, -1),
+    (hole) => monolithLensAt(hole, LENS_X, -0.004, 0.172, 0.116, 1),
+    0.022,
+    0.0036
   );
-  const lens = lensGeom((s) => roundedRect(s, 0.352, 0.242, 0.034), 0.008, 0.004);
+  group.add(new THREE.Mesh(frontGeo, acetate));
 
   for (const side of [-1, 1]) {
-    const r = new THREE.Mesh(rim, acetate);
-    r.position.set(side * LENS_X, 0, 0);
-    group.add(r);
-    const l = new THREE.Mesh(lens, glass);
-    l.position.set(side * LENS_X, 0, 0.02);
-    group.add(l);
-
+    const lens = lensGeom((s) => monolithLensAt(s, 0, -0.004, 0.174, 0.118, side), 0.006, 0.0055, side * LENS_X, 0.08);
+    const lMesh = new THREE.Mesh(lens, glass);
+    lMesh.position.set(side * LENS_X, 0, 0.008);
+    group.add(lMesh);
   }
 
-  const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.125, 0.048, 0.052), acetate);
-  bridge.position.set(0, 0.015, 0.01);
-  group.add(bridge);
-
-  const rivet = new THREE.CylinderGeometry( 0.0045, 0.0045, 0.005, 12);
-  rivet.rotateX(Math.PI / 2);
-  // Slot on rivet
-  const slotGeo = new THREE.BoxGeometry(0.005, 0.001, 0.006);
-
   for (const side of [-1, 1]) {
-    addTempleSlab(group, acetate, side * 0.475, 0.03, 0.05);
-    // Double gold rivets + slot
-    for (const dx of [0, 0.038]) {
-      const r = new THREE.Mesh(rivet, g);
-      r.position.set(side * (0.458 - dx), 0.072, 0.03);
-      group.add(r);
-      const slot = new THREE.Mesh(
-        slotGeo,
-        new THREE.MeshPhysicalMaterial({ color: 0x1a1a1a, metalness: 0.6, roughness: 0.4 })
-      );
-      slot.position.set(side * (0.458 - dx), 0.072, 0.033);
-      group.add(slot);
-    }
-    addHinge(group, g, side * 0.478, 0.02);
+    // Wide sculpted black acetate temple flush with the tall endpiece lug
+    addSculptedAcetateTemple(group, acetate, side, 0.468, 0.082, -0.004, 0.014, 0.082, 0.58);
+    addHinge(group, hardware, side * 0.458, 0.082, -0.004);
 
-    const nose = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.05, 0.022), acetate);
-    nose.position.set(side * 0.16, -0.075, 0.018);
-    nose.rotation.z = side * 0.32;
+    // Contoured inner acetate nose pads
+    const noseGeo = new THREE.CapsuleGeometry(0.009, 0.028, 8, 12);
+    noseGeo.scale(0.55, 1.0, 0.8);
+    const nose = new THREE.Mesh(noseGeo, acetate);
+    nose.position.set(side * 0.064, -0.042, 0.002);
+    nose.rotation.set(0.22, side * -0.25, side * 0.28);
     group.add(nose);
   }
   return group;
 }
 
+// ── Frame 3: ORBIT T-4 (48-21-140) — Double-Bridge Round Titanium + Tortoise ─
 function buildOrbit() {
   const group = new THREE.Group();
   group.name = "ORBIT_T4";
   const metal = titanium(0xb7b8b4);
-  const glass = opticalLens(0xeef3f6);
+  const glass = opticalLens();
   const tip = tortoise();
 
-  const rim = rimGeom(
-    (s) => oval(s, 0.186, 0.16),
-    (p) => oval(p, 0.17, 0.144),
-    0.007,
-    0.0006
-  );
-  const lens = lensGeom((s) => oval(s, 0.172, 0.146), 0.005, 0.004);
-
   for (const side of [-1, 1]) {
-    const r = new THREE.Mesh(rim, metal);
-    r.position.set(side * LENS_X, 0, 0);
-    group.add(r);
-    const l = new THREE.Mesh(lens, glass);
-    l.position.set(side * LENS_X, 0, 0.002);
-    group.add(l);
+    const rim = rimGeom(
+      (s) => orbitRoundAt(s, 0, 0, 0.180, 0.166),
+      (p) => orbitRoundAt(p, 0, 0, 0.172, 0.158),
+      0.012,
+      0.0012,
+      side * LENS_X
+    );
+    const rMesh = new THREE.Mesh(rim, metal);
+    rMesh.position.set(side * LENS_X, 0, 0);
+    group.add(rMesh);
+
+    const lens = lensGeom((s) => orbitRoundAt(s, 0, 0, 0.173, 0.159), 0.005, 0.0055, side * LENS_X);
+    const lMesh = new THREE.Mesh(lens, glass);
+    lMesh.position.set(side * LENS_X, 0, 0.003);
+    group.add(lMesh);
   }
 
+  // Lower arched bridge
   const bridgeCurve = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(-0.09, 0.025, 0.002),
-    new THREE.Vector3(0, 0.045, 0.012),
-    new THREE.Vector3(0.09, 0.025, 0.002),
+    new THREE.Vector3(-0.068, 0.026, 0.008),
+    new THREE.Vector3(0, 0.046, 0.016),
+    new THREE.Vector3(0.068, 0.026, 0.008),
   ]);
-  group.add(new THREE.Mesh(new THREE.TubeGeometry(bridgeCurve, 24, 0.0055, 10, false), metal));
+  group.add(new THREE.Mesh(new THREE.TubeGeometry(bridgeCurve, 24, 0.0038, 12, false), metal));
 
+  // Signature flat-top aviator brow bar welded across the upper rim crests (matches orbit_t4.png)
   const browCurve = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(-0.2, 0.122, 0.012),
-    new THREE.Vector3(0, 0.136, 0.016),
-    new THREE.Vector3(0.2, 0.122, 0.012),
+    new THREE.Vector3(-0.215, 0.156, 0.009),
+    new THREE.Vector3(0, 0.164, 0.014),
+    new THREE.Vector3(0.215, 0.156, 0.009),
   ]);
-  group.add(new THREE.Mesh(new THREE.TubeGeometry(browCurve, 24, 0.0032, 10, false), metal));
+  group.add(new THREE.Mesh(new THREE.TubeGeometry(browCurve, 28, 0.0028, 10, false), metal));
 
   for (const side of [-1, 1]) {
-    const end = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.02, 0.009), metal);
-    end.position.set(side * 0.43, 0.02, -0.002);
-    group.add(end);
-    addHinge(group, metal, side * 0.438, 0.02);
-    addTempleWire(group, metal, side * 0.44);
-    const tipGeom = new THREE.CapsuleGeometry(0.0052, 0.08, 6, 12);
-    tipGeom.rotateX(Math.PI / 2);
-    const t = new THREE.Mesh(tipGeom, tip);
-    t.position.set(side * 0.455, 0.022, -0.52);
-    group.add(t);
+    const lug = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.012, 0.009), metal);
+    lug.position.set(side * 0.428, 0.016, -0.003);
+    group.add(lug);
+    addHinge(group, metal, side * 0.438, 0.016, -0.008);
+    addOrbitTempleWithTortoiseTip(group, metal, tip, side, 0.438, 0.016, -0.008);
   }
+
+  addGooseneckPads(group, metal, metal, 0.076, 0.002);
   return group;
 }
 
+// ── Frame 4: LUCENT V1 (49-19-142) — Crystal Panto Sun + Core Wire ─────────
 function buildLucent() {
   const group = new THREE.Group();
   group.name = "LUCENT_V1";
   const crystal = crystalMat();
-  const sun = sunLens();
-  const core = gold();
+  const sun = sunLens(0x232a31);
+  const core = titanium(0xc8cfd8);
 
-  const rim = rimGeom(
-    (s) => pantoLens(s, 0.23, 0.17),
-    (p) => pantoLens(p, 0.17, 0.12),
-    0.055,
-    0.005
+  // Continuous one-piece crystal acetate front (realistic ~4.3mm Z thickness)
+  const frontGeo = onePieceAcetateFrontGeom(
+    drawLucentFrontOutline,
+    (hole) => lucentLensAt(hole, -LENS_X, -0.002, 0.174, 0.132, -1),
+    (hole) => lucentLensAt(hole, LENS_X, -0.002, 0.174, 0.132, 1),
+    0.022,
+    0.0038
   );
-  const lens = lensGeom((s) => pantoLens(s, 0.1725, 0.1225), 0.014, 0.005);
+  group.add(new THREE.Mesh(frontGeo, crystal));
 
   for (const side of [-1, 1]) {
-    const r = new THREE.Mesh(rim, crystal);
-    r.position.set(side * LENS_X, 0, 0);
-    group.add(r);
-    const l = new THREE.Mesh(lens, sun);
-    l.position.set(side * LENS_X, 0, 0.018);
-    group.add(l);
+    const lens = lensGeom((s) => lucentLensAt(s, 0, -0.002, 0.176, 0.134, side), 0.007, 0.0055, side * LENS_X, 0.08);
+    const lMesh = new THREE.Mesh(lens, sun);
+    lMesh.position.set(side * LENS_X, 0, 0.008);
+    group.add(lMesh);
   }
 
-  const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.145, 0.045, 0.058), crystal);
-  bridge.position.set(0, 0.025, 0.01);
-  group.add(bridge);
+  // Signature diamond/lozenge front rivet + internal hinge block visible inside crystal lug
+  const diamondShape = new THREE.Shape();
+  diamondShape.moveTo(-0.013, 0);
+  diamondShape.lineTo(0, 0.0055);
+  diamondShape.lineTo(0.013, 0);
+  diamondShape.lineTo(0, -0.0055);
+  diamondShape.closePath();
+  const diamondGeo = new THREE.ExtrudeGeometry(diamondShape, {
+    depth: 0.016,
+    bevelEnabled: true,
+    bevelSegments: 2,
+    steps: 1,
+    bevelSize: 0.0006,
+    bevelThickness: 0.0006,
+  });
 
   for (const side of [-1, 1]) {
-    const end = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.048, 0.052), crystal);
-    end.position.set(side * 0.475, 0.02, -0.01);
-    group.add(end);
-    addHinge(group, core, side * 0.48, 0.02);
+    // Sculpted crystal temple flush with upswept lug + curved metallic core wire inside
+    addSculptedAcetateTemple(group, crystal, side, 0.468, 0.074, -0.004, 0.014, 0.058, 0.58, core);
+    addHinge(group, core, side * 0.462, 0.074, -0.002);
 
-    const temple = addTempleSlab(group, crystal, side * 0.48, 0.024, 0.042, 0.62);
-    const coreGeom = new THREE.CylinderGeometry(0.0032, 0.0032, 0.52, 12);
-    coreGeom.rotateX(Math.PI / 2);
-    coreGeom.translate(0, 0, -0.05);
-    temple.add(new THREE.Mesh(coreGeom, core));
+    const rivet = new THREE.Mesh(diamondGeo, core);
+    rivet.position.set(side * 0.458, 0.076, 0.002);
+    rivet.rotation.y = side * -0.08;
+    group.add(rivet);
 
-    const nose = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.048, 0.022), crystal);
-    nose.position.set(side * 0.16, -0.095, 0.015);
-    nose.rotation.z = side * 0.35;
+    const noseGeo = new THREE.CapsuleGeometry(0.009, 0.026, 8, 12);
+    noseGeo.scale(0.55, 1.0, 0.8);
+    const nose = new THREE.Mesh(noseGeo, crystal);
+    nose.position.set(side * 0.060, -0.044, 0.002);
+    nose.rotation.set(0.22, side * -0.25, side * 0.3);
+    group.add(nose);
+  }
+  return group;
+}
+
+// ── Frame 5: SOLARIS A1 (56-16-145) — Champagne Gold Double-Bridge Aviator ──
+function buildSolaris() {
+  const group = new THREE.Group();
+  group.name = "SOLARIS_A1";
+  const metal = titanium(0xd4b483);
+  const glass = opticalLens();
+
+  for (const side of [-1, 1]) {
+    const rim = rimGeom(
+      (s) => aviatorTeardropAt(s, 0, -0.006, 0.198, 0.170, side),
+      (p) => aviatorTeardropAt(p, 0, -0.006, 0.190, 0.162, side),
+      0.012,
+      0.0012,
+      side * LENS_X
+    );
+    const rMesh = new THREE.Mesh(rim, metal);
+    rMesh.position.set(side * LENS_X, 0, 0);
+    group.add(rMesh);
+
+    const lens = lensGeom((s) => aviatorTeardropAt(s, 0, -0.006, 0.191, 0.163, side), 0.005, 0.0055, side * LENS_X);
+    const lMesh = new THREE.Mesh(lens, glass);
+    lMesh.position.set(side * LENS_X, 0, 0.003);
+    group.add(lMesh);
+  }
+
+  // Lower arched bridge
+  const bridgeCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-0.056, 0.044, 0.009),
+    new THREE.Vector3(-0.024, 0.062, 0.016),
+    new THREE.Vector3(0.024, 0.062, 0.016),
+    new THREE.Vector3(0.056, 0.044, 0.009),
+  ]);
+  group.add(new THREE.Mesh(new THREE.TubeGeometry(bridgeCurve, 28, 0.0036, 12, false), metal));
+
+  // Signature straight upper aviator double brow bar
+  const browCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-0.232, 0.156, 0.011),
+    new THREE.Vector3(0, 0.162, 0.015),
+    new THREE.Vector3(0.232, 0.156, 0.011),
+  ]);
+  group.add(new THREE.Mesh(new THREE.TubeGeometry(browCurve, 28, 0.0030, 10, false), metal));
+
+  for (const side of [-1, 1]) {
+    const lug = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.013, 0.009), metal);
+    lug.position.set(side * 0.442, 0.044, -0.004);
+    group.add(lug);
+    addHinge(group, metal, side * 0.452, 0.044, -0.010);
+    addAeroTitaniumTemple(group, metal, side, 0.452, 0.044, -0.010);
+  }
+
+  addGooseneckPads(group, metal, metal, 0.068, 0.016);
+  return group;
+}
+
+// ── Frame 6: VELVET C3 (52-18-142) — Burgundy Sculpted Cat-Eye Acetate ──────
+function buildVelvet() {
+  const group = new THREE.Group();
+  group.name = "VELVET_C3";
+  const acetate = new THREE.MeshPhysicalMaterial({
+    color: 0x6b1d2f,
+    metalness: 0,
+    roughness: 0.12,
+    clearcoat: 1,
+    clearcoatRoughness: 0.04,
+    name: "acetate",
+  });
+  const glass = opticalLens();
+  const hardware = titanium(0xd8dde4);
+
+  const frontGeo = onePieceAcetateFrontGeom(
+    drawVelvetFrontOutline,
+    (hole) => catEyeLensAt(hole, -LENS_X, -0.008, 0.166, 0.126, -1),
+    (hole) => catEyeLensAt(hole, LENS_X, -0.008, 0.166, 0.126, 1),
+    0.022,
+    0.0038
+  );
+  group.add(new THREE.Mesh(frontGeo, acetate));
+
+  for (const side of [-1, 1]) {
+    const lens = lensGeom((s) => catEyeLensAt(s, 0, -0.008, 0.168, 0.128, side), 0.006, 0.0055, side * LENS_X, 0.08);
+    const lMesh = new THREE.Mesh(lens, glass);
+    lMesh.position.set(side * LENS_X, 0, 0.008);
+    group.add(lMesh);
+  }
+
+  const pinShape = new THREE.Shape();
+  pinShape.moveTo(-0.012, 0);
+  pinShape.lineTo(-0.005, 0.0045);
+  pinShape.lineTo(0.005, 0.0045);
+  pinShape.lineTo(0.012, 0);
+  pinShape.lineTo(0.005, -0.0045);
+  pinShape.lineTo(-0.005, -0.0045);
+  pinShape.closePath();
+  const pinGeo = new THREE.ExtrudeGeometry(pinShape, {
+    depth: 0.006,
+    bevelEnabled: true,
+    bevelSegments: 2,
+    steps: 1,
+    bevelSize: 0.0005,
+    bevelThickness: 0.0005,
+  });
+
+  for (const side of [-1, 1]) {
+    addSculptedAcetateTemple(group, acetate, side, 0.482, 0.104, -0.004, 0.014, 0.056, 0.58);
+    addHinge(group, hardware, side * 0.472, 0.104, -0.004);
+
+    const rivet = new THREE.Mesh(pinGeo, hardware);
+    rivet.position.set(side * 0.456, 0.120, 0.014);
+    rivet.rotation.y = side * -0.08;
+    group.add(rivet);
+
+    const noseGeo = new THREE.CapsuleGeometry(0.009, 0.026, 8, 12);
+    noseGeo.scale(0.55, 1.0, 0.8);
+    const nose = new THREE.Mesh(noseGeo, acetate);
+    nose.position.set(side * 0.060, -0.044, 0.002);
+    nose.rotation.set(0.22, side * -0.25, side * 0.28);
+    group.add(nose);
+  }
+  return group;
+}
+
+// ── Frame 7: PRISM H6 (50-19-145) — Gunmetal Hexagonal Geometric Wire ───────
+function buildPrism() {
+  const group = new THREE.Group();
+  group.name = "PRISM_H6";
+  const metal = titanium(0x525860);
+  const glass = opticalLens();
+
+  for (const side of [-1, 1]) {
+    const rim = rimGeom(
+      (s) => hexGeometricAt(s, 0, 0, 0.186, 0.158),
+      (p) => hexGeometricAt(p, 0, 0, 0.177, 0.149),
+      0.013,
+      0.0012,
+      side * LENS_X
+    );
+    const rMesh = new THREE.Mesh(rim, metal);
+    rMesh.position.set(side * LENS_X, 0, 0);
+    group.add(rMesh);
+
+    const lens = lensGeom((s) => hexGeometricAt(s, 0, 0, 0.178, 0.150), 0.005, 0.0055, side * LENS_X);
+    const lMesh = new THREE.Mesh(lens, glass);
+    lMesh.position.set(side * LENS_X, 0, 0.003);
+    group.add(lMesh);
+  }
+
+  const bridgeCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-0.060, 0.022, 0.009),
+    new THREE.Vector3(-0.026, 0.042, 0.016),
+    new THREE.Vector3(0.026, 0.042, 0.016),
+    new THREE.Vector3(0.060, 0.022, 0.009),
+  ]);
+  group.add(new THREE.Mesh(new THREE.TubeGeometry(bridgeCurve, 26, 0.0038, 12, false), metal));
+
+  for (const side of [-1, 1]) {
+    const lug = new THREE.Mesh(new THREE.BoxGeometry(0.034, 0.014, 0.010), metal);
+    lug.position.set(side * 0.436, 0.020, -0.004);
+    group.add(lug);
+    addHinge(group, metal, side * 0.448, 0.020, -0.010);
+    addAeroTitaniumTemple(group, metal, side, 0.448, 0.020, -0.010);
+  }
+
+  addGooseneckPads(group, metal, metal, 0.070, 0.002);
+  return group;
+}
+
+// ── Frame 8: AMBER R5 (53-18-145) — Translucent Amber Narrow Rectangle ──────
+function buildAmber() {
+  const group = new THREE.Group();
+  group.name = "AMBER_R5";
+  const amber = amberAcetate(0xb46a28);
+  const glass = opticalLens();
+  const core = goldCore(0xd8b46c);
+
+  const frontGeo = onePieceAcetateFrontGeom(
+    drawAmberFrontOutline,
+    (hole) => narrowRectLensAt(hole, -LENS_X, 0.0, 0.168, 0.094, -1),
+    (hole) => narrowRectLensAt(hole, LENS_X, 0.0, 0.168, 0.094, 1),
+    0.020,
+    0.0034
+  );
+  group.add(new THREE.Mesh(frontGeo, amber));
+
+  for (const side of [-1, 1]) {
+    const lens = lensGeom((s) => narrowRectLensAt(s, 0, 0.0, 0.170, 0.096, side), 0.006, 0.0050, side * LENS_X, 0.08);
+    const lMesh = new THREE.Mesh(lens, glass);
+    lMesh.position.set(side * LENS_X, 0, 0.007);
+    group.add(lMesh);
+  }
+
+  for (const side of [-1, 1]) {
+    addSculptedAcetateTemple(group, amber, side, 0.468, 0.070, -0.004, 0.013, 0.052, 0.58, core);
+    addHinge(group, core, side * 0.460, 0.070, -0.002);
+
+    const noseGeo = new THREE.CapsuleGeometry(0.0085, 0.024, 8, 12);
+    noseGeo.scale(0.55, 1.0, 0.8);
+    const nose = new THREE.Mesh(noseGeo, amber);
+    nose.position.set(side * 0.060, -0.036, 0.002);
+    nose.rotation.set(0.22, side * -0.25, side * 0.28);
     group.add(nose);
   }
   return group;
@@ -633,6 +1202,10 @@ const frames = [
   { build: buildMonolith, fileName: "monolith_02.glb" },
   { build: buildOrbit, fileName: "orbit_t4.glb" },
   { build: buildLucent, fileName: "lucent_v1.glb" },
+  { build: buildSolaris, fileName: "solaris_a1.glb" },
+  { build: buildVelvet, fileName: "velvet_c3.glb" },
+  { build: buildPrism, fileName: "prism_h6.glb" },
+  { build: buildAmber, fileName: "amber_r5.glb" },
 ];
 const requestedFrame = process.argv[2]?.toLowerCase();
 const framesToExport = frames.filter(

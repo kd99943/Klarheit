@@ -5,7 +5,7 @@ import { useOrders } from "../hooks/useOrders";
 import { formatDate } from "../lib/utils";
 import { PageIntro } from "../components/ui/PageIntro";
 import { SectionCard } from "../components/ui/SectionCard";
-import { Button } from "../components/ui/Button";
+import { buttonClassName } from "../components/ui/Button";
 
 export function AppointmentsPage() {
   const { t } = useTranslation("account");
@@ -42,10 +42,11 @@ export function AppointmentsPage() {
               <Sparkles className="h-3.5 w-3.5" />
               {t("appointments.booking.statusBadge")}
             </div>
-            <Link to="/collections">
-              <Button variant="outline-light" className="text-xs">
-                {t("appointments.booking.browseCollections")}
-              </Button>
+            <Link
+              to="/collections"
+              className={buttonClassName({ variant: "outline-light", className: "text-xs" })}
+            >
+              {t("appointments.booking.browseCollections")}
             </Link>
           </div>
         </SectionCard>
@@ -61,8 +62,11 @@ export function AppointmentsPage() {
           ) : orders.length === 0 ? (
             <div className="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-8 text-center">
               <p className="text-sm text-slate-500">{t("orders.noOrders")}</p>
-              <Link to="/collections" className="mt-3 inline-block">
-                <Button variant="outline-light" className="text-xs">{t("orders.browseCollections")}</Button>
+              <Link
+                to="/collections"
+                className={buttonClassName({ variant: "outline-light", className: "mt-3 text-xs" })}
+              >
+                {t("orders.browseCollections")}
               </Link>
             </div>
           ) : (
@@ -94,7 +98,10 @@ export function AppointmentsPage() {
                       {order.productName}
                     </p>
                     <p className="mt-1 text-xs text-slate-500">
-                      {t("orders.status")}: <span className="font-medium text-brand-primary">{order.status}</span>
+                      {t("orders.status")}:{" "}
+                      <span className="font-medium text-brand-primary">
+                        {t(`orders.statusLabels.${order.status.toUpperCase()}`, { defaultValue: order.status })}
+                      </span>
                     </p>
                   </Link>
                 </li>

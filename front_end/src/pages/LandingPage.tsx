@@ -287,7 +287,7 @@ export function LandingPage() {
                   {t("faq.title")}
                 </h2>
                 <p className="text-slate-500 text-sm font-light leading-relaxed">
-                  {t("cta.description")}
+                  {t("faq.subtitle")}
                 </p>
               </div>
             </div>

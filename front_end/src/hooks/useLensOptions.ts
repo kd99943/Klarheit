@@ -31,5 +31,9 @@ export function useLensOptions() {
     return () => controller.abort();
   }, [load]);
 
-  return { options, isLoading, error };
+  const reload = useCallback(() => {
+    void load();
+  }, [load]);
+
+  return { options, isLoading, error, reload };
 }

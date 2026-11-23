@@ -10,6 +10,7 @@ import com.klarheit.backend.order.AdminController;
 import com.klarheit.backend.order.Order;
 import com.klarheit.backend.order.OrderRepository;
 import com.klarheit.backend.order.OrderStatus;
+import com.klarheit.backend.order.dto.OrderDetailResponseDTO;
 import com.klarheit.backend.order.dto.OrderSummaryDTO;
 import com.klarheit.backend.product.Product;
 import com.klarheit.backend.product.ProductService;
@@ -20,7 +21,6 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
@@ -45,13 +45,14 @@ class AdminControllerTest {
     @Mock
     private AuditLogService auditLogService;
 
-    @InjectMocks
     private AdminController adminController;
 
     private Order testOrder;
 
     @BeforeEach
     void setUp() {
+        adminController = new AdminController(orderRepository, userAccountRepository, productService, auditLogService);
+
         Product product = Product.builder()
                 .id(1L)
                 .name("AERO X1")
@@ -61,6 +62,11 @@ class AdminControllerTest {
                 .id(1L)
                 .orderNumber("KL-12345")
                 .status(OrderStatus.PAID)
+                .customerFirstName("John")
+                .customerLastName("Doe")
+                .customerEmail("john@example.com")
+                .customerPhone("13800138000")
+                .shippingAddress("123 Main St")
                 .product(product)
                 .totalAmount(new BigDecimal("1000.00"))
                 .build();
@@ -85,6 +91,18 @@ class AdminControllerTest {
         assertThat(response.getBody().getContent()).hasSize(1);
         assertThat(response.getBody().getContent().get(0).orderNumber()).isEqualTo("KL-12345");
         assertThat(response.getBody().getContent().get(0).productName()).isEqualTo("AERO X1");
+    }
+
+    @Test
+    void getOrderDetailsReturnsAdminOrderDetail() {
+        when(orderRepository.findByOrderNumber("KL-12345")).thenReturn(Optional.of(testOrder));
+
+        ResponseEntity<OrderDetailResponseDTO> response = adminController.getOrderDetails("KL-12345");
+
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().orderNumber()).isEqualTo("KL-12345");
+        assertThat(response.getBody().customerPhone()).isEqualTo("13800138000");
     }
 
     @Test
@@ -117,7 +135,8 @@ class AdminControllerTest {
     }
 
     @Test
-    void cancelOrderSuccessfully() {
+    void cancelUnpaidOrderTransitionsToCancelledAndPaidOrderTransitionsToRefundPending() {
+        testOrder.setStatus(OrderStatus.PENDING_PAYMENT);
         when(orderRepository.findByOrderNumber("KL-12345")).thenReturn(Optional.of(testOrder));
 
         ResponseEntity<Void> response = adminController.cancelOrder("KL-12345", mockAuth("admin@klarheit.com"));
@@ -126,6 +145,49 @@ class AdminControllerTest {
         assertThat(testOrder.getStatus()).isEqualTo(OrderStatus.CANCELLED);
         verify(orderRepository).save(testOrder);
         verify(auditLogService).log(eq("admin@klarheit.com"), eq("CANCEL_ORDER"), eq("ORDER"), eq("KL-12345"), anyString());
+
+        testOrder.setStatus(OrderStatus.PAID);
+        adminController.cancelOrder("KL-12345", mockAuth("admin@klarheit.com"));
+        assertThat(testOrder.getStatus()).isEqualTo(OrderStatus.REFUND_PENDING);
+    }
+
+    @Test
+    void cancelOrderWhenDeferredLogsCancelOrderFailedAndRethrowsConflict() {
+        com.klarheit.backend.order.OrderService mockedOrderService = mock(com.klarheit.backend.order.OrderService.class);
+        AdminController controllerWithOrderService = new AdminController(
+                orderRepository,
+                userAccountRepository,
+                productService,
+                auditLogService,
+                mockedOrderService,
+                null
+        );
+        when(mockedOrderService.adminCancelOrder("KL-UNKNOWN-99"))
+                .thenThrow(new com.klarheit.backend.order.OrderCancellationDeferredException("支付状态核对中，暂未取消，请稍后重试"));
+
+        assertThatThrownBy(() -> controllerWithOrderService.cancelOrder("KL-UNKNOWN-99", mockAuth("admin@klarheit.com")))
+                .isInstanceOf(com.klarheit.backend.order.OrderCancellationDeferredException.class)
+                .hasMessage("支付状态核对中，暂未取消，请稍后重试");
+
+        verify(auditLogService).log(
+                eq("admin@klarheit.com"),
+                eq("CANCEL_ORDER_FAILED"),
+                eq("ORDER"),
+                eq("KL-UNKNOWN-99"),
+                contains("支付状态核对中，暂未取消，请稍后重试"));
+        verify(auditLogService, never()).log(
+                eq("admin@klarheit.com"),
+                eq("CANCEL_ORDER"),
+                eq("ORDER"),
+                eq("KL-UNKNOWN-99"),
+                anyString());
+
+        com.klarheit.backend.config.ApiExceptionHandler exceptionHandler = new com.klarheit.backend.config.ApiExceptionHandler();
+        var errorResponse = exceptionHandler.handleIllegalState(
+                new com.klarheit.backend.order.OrderCancellationDeferredException("支付状态核对中，暂未取消，请稍后重试"));
+        assertThat(errorResponse.getStatusCode().value()).isEqualTo(409);
+        assertThat(errorResponse.getBody()).isNotNull();
+        assertThat(errorResponse.getBody().message()).isEqualTo("支付状态核对中，暂未取消，请稍后重试");
     }
 
     @Test

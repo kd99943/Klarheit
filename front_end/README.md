@@ -1,20 +1,45 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Klarheit Frontend (`front_end`)
 
-# Run and deploy your AI Studio app
+React 19 + TypeScript + Vite storefront for the **Klarheit** D2C optical and WebAR virtual try-on platform.
 
-This contains everything you need to run your app locally.
+## Tech Stack
 
-View your app in AI Studio: https://ai.studio/apps/63216cee-9ab5-4dbc-a832-39824646bfc0
+- **Framework**: React 19, TypeScript 5.8, Vite 6
+- **Styling**: Tailwind CSS 4
+- **3D & WebAR**: Three.js + `@mediapipe/tasks-vision` (Face Landmarker with local `/wasm` and model assets, GPU-first with automatic CPU fallback)
+- **Routing & i18n**: React Router 7, `i18next` + `react-i18next` (`en` / `zh`)
+- **Testing**: Vitest 4 + Testing Library
 
-## Run Locally
+## Prerequisites
 
-**Prerequisites:**  Node.js
+- Node.js 22+
+- Backend API running locally on `http://localhost:8081` (or configured via `VITE_API_BASE_URL`)
 
+## Available Scripts
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+```bash
+# Install dependencies (also localizes MediaPipe WASM/model assets into public/wasm)
+npm install
+
+# Start local dev server on http://localhost:3000
+npm run dev
+
+# Type-check with TypeScript
+npm run lint
+
+# Scan for bare untranslated UI strings
+npm run check-i18n
+
+# Run Vitest unit test suite
+npm run test
+
+# Build production bundle into dist/
+npm run build
+```
+
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `VITE_API_BASE_URL` | `http://localhost:8081/api/v1` | Backend API base URL (can also be injected at container startup via `public/env-config.js`) |
+| `VITE_ENABLE_MOCK_PAYMENT` | Enabled in Vite `DEV`, disabled in production build | Controls whether the sandbox mock payment simulation button is rendered |

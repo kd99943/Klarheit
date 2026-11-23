@@ -41,6 +41,10 @@ public class Product {
     private String specsSize = "52-18-145";
     @Column(name = "detail_images", length = 2048)
     private String detailImages;
+    @Column(name = "stock_quantity", nullable = false)
+    private Integer stockQuantity = 50;
+    @Column(name = "sales_status", nullable = false, length = 32)
+    private String salesStatus = ProductSalesStatus.AVAILABLE;
 
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ProductArConfig> arConfigs = new ArrayList<>();
@@ -50,6 +54,8 @@ public class Product {
         // Keep name/material in sync with English locale as default
         if (name == null || name.isBlank()) name = nameEn;
         if (material == null || material.isBlank()) material = materialEn;
+        if (stockQuantity == null) stockQuantity = 50;
+        if (salesStatus == null || salesStatus.isBlank()) salesStatus = ProductSalesStatus.AVAILABLE;
     }
 
     public static Builder builder() { return new Builder(); }
@@ -65,6 +71,8 @@ public class Product {
     public String getShape() { return shape; }
     public String getSpecsSize() { return specsSize; }
     public String getDetailImages() { return detailImages; }
+    public Integer getStockQuantity() { return stockQuantity; }
+    public String getSalesStatus() { return salesStatus; }
     public List<ProductArConfig> getArConfigs() { return arConfigs; }
 
     public void setId(Long id) { this.id = id; }
@@ -79,6 +87,8 @@ public class Product {
     public void setShape(String shape) { this.shape = shape; }
     public void setSpecsSize(String specsSize) { this.specsSize = specsSize; }
     public void setDetailImages(String detailImages) { this.detailImages = detailImages; }
+    public void setStockQuantity(Integer stockQuantity) { this.stockQuantity = stockQuantity; }
+    public void setSalesStatus(String salesStatus) { this.salesStatus = salesStatus; }
     public void setArConfigs(List<ProductArConfig> arConfigs) { this.arConfigs = arConfigs; }
 
     public static final class Builder {
@@ -95,6 +105,8 @@ public class Product {
         public Builder shape(String shape) { instance.shape = shape; return this; }
         public Builder specsSize(String specsSize) { instance.specsSize = specsSize; return this; }
         public Builder detailImages(String detailImages) { instance.detailImages = detailImages; return this; }
+        public Builder stockQuantity(Integer stockQuantity) { instance.stockQuantity = stockQuantity; return this; }
+        public Builder salesStatus(String salesStatus) { instance.salesStatus = salesStatus; return this; }
         public Builder arConfigs(List<ProductArConfig> arConfigs) { instance.arConfigs = arConfigs; return this; }
         public Product build() { return instance; }
     }

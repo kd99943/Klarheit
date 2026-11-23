@@ -1,10 +1,11 @@
 package com.klarheit.backend;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.klarheit.backend.order.OrderService;
+import com.klarheit.backend.payment.MockPaymentController;
 import com.klarheit.backend.payment.PaymentCallbackController;
 import jakarta.servlet.http.HttpServletRequest;
 import java.nio.charset.StandardCharsets;
@@ -16,7 +17,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.core.env.StandardEnvironment;
 import org.springframework.http.ResponseEntity;
+import org.springframework.mock.env.MockEnvironment;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -38,9 +41,31 @@ class PaymentCallbackControllerTest {
     }
 
     @Test
+    void mockPaymentControllerIsAnnotatedWithDevTestProfileOnlyAndRejectsProdProfile() {
+        org.springframework.context.annotation.Profile profileAnnotation =
+                MockPaymentController.class.getAnnotation(org.springframework.context.annotation.Profile.class);
+        assertThat(profileAnnotation).isNotNull();
+        assertThat(profileAnnotation.value()).containsExactly("local & !prod", "test & !prod");
+
+        MockEnvironment prodEnv = new MockEnvironment();
+        prodEnv.setActiveProfiles("prod");
+        assertThat(prodEnv.acceptsProfiles(org.springframework.core.env.Profiles.of(profileAnnotation.value()))).isFalse();
+
+        MockEnvironment localEnv = new MockEnvironment();
+        localEnv.setActiveProfiles("local");
+        assertThat(localEnv.acceptsProfiles(org.springframework.core.env.Profiles.of(profileAnnotation.value()))).isTrue();
+    }
+
+    @Test
+    void paymentCallbackControllerDoesNotExposeMockEndpoints() {
+        long mockMethods = java.util.Arrays.stream(PaymentCallbackController.class.getDeclaredMethods())
+                .filter(m -> m.getName().toLowerCase().contains("mock"))
+                .count();
+        assertThat(mockMethods).isZero();
+    }
+
+    @Test
     void handleAlipayCallbackRejectsWhenPublicKeyNotConfigured() {
-        // Security regression test: previously an unconfigured Alipay public key
-        // fell back to a custom HMAC scheme. Real callbacks must now be rejected.
         HttpServletRequest request = mock(HttpServletRequest.class);
         Map<String, String[]> requestParams = new HashMap<>();
         requestParams.put("out_trade_no", new String[]{"KL-1234"});
@@ -60,7 +85,6 @@ class PaymentCallbackControllerTest {
 
     @Test
     void handleWeChatCallbackXmlHMACSuccess() {
-        // Build mock XML callback body
         String rawXml = "<xml>" +
                 "<out_trade_no><![CDATA[KL-5678]]></out_trade_no>" +
                 "<transaction_id><![CDATA[WX-TX-222]]></transaction_id>" +
@@ -68,7 +92,6 @@ class PaymentCallbackControllerTest {
                 "<sign><![CDATA[MOCK_SIGN]]></sign>" +
                 "</xml>";
 
-        // Build payload and sign it
         String payload = "out_trade_no=KL-5678&result_code=SUCCESS&transaction_id=WX-TX-222";
         String computedSign = ReflectionTestUtils.invokeMethod(paymentCallbackController, "hmacSha256", payload, WECHAT_KEY);
         String xmlWithRealSign = rawXml.replace("MOCK_SIGN", computedSign);
@@ -82,12 +105,10 @@ class PaymentCallbackControllerTest {
 
     @Test
     void handleWeChatCallbackV3WithSignatureVerification() throws Exception {
-        // Generate an RSA key pair for testing
         java.security.KeyPairGenerator keyGen = java.security.KeyPairGenerator.getInstance("RSA");
         keyGen.initialize(2048);
         java.security.KeyPair keyPair = keyGen.generateKeyPair();
 
-        // Set the public key on the controller
         String publicKeyBase64 = java.util.Base64.getEncoder().encodeToString(keyPair.getPublic().getEncoded());
         ReflectionTestUtils.setField(paymentCallbackController, "wechatPlatformPublicKey", publicKeyBase64);
 
@@ -107,7 +128,6 @@ class PaymentCallbackControllerTest {
 
         String timestamp = "1719200000";
         String callbackNonce = "test-nonce";
-        // Sign the message using the private key
         String signatureBase64 = signMessage(timestamp, callbackNonce, jsonBody, keyPair.getPrivate());
 
         ResponseEntity<String> response = paymentCallbackController.handleWeChatCallback(
@@ -115,13 +135,11 @@ class PaymentCallbackControllerTest {
 
         assertThat(response.getStatusCode().value()).isEqualTo(200);
         assertThat(response.getBody()).contains("SUCCESS");
-        // amount.total=85000 fen = 850.00 yuan, passed for verification
         verify(orderService).completePayment(eq("KL-8888"), eq("WX-TX-444"), eq("WECHAT"), eq(java.math.BigDecimal.valueOf(85000, 2)));
     }
 
     @Test
     void handleWeChatCallbackV3RejectsInvalidSignature() throws Exception {
-        // Generate an RSA key pair and set the public key
         java.security.KeyPairGenerator keyGen = java.security.KeyPairGenerator.getInstance("RSA");
         keyGen.initialize(2048);
         java.security.KeyPair keyPair = keyGen.generateKeyPair();
@@ -141,7 +159,6 @@ class PaymentCallbackControllerTest {
 
     @Test
     void handleWeChatCallbackV3RejectsMissingHeaders() throws Exception {
-        // Set a public key to enable signature verification
         ReflectionTestUtils.setField(paymentCallbackController, "wechatPlatformPublicKey", "somePublicKey");
 
         String jsonBody = "{\"resource\":{\"ciphertext\":\"abc\",\"nonce\":\"123\"}}";
@@ -152,6 +169,73 @@ class PaymentCallbackControllerTest {
         assertThat(response.getStatusCode().value()).isEqualTo(400);
         assertThat(response.getBody()).contains("Missing signature headers");
         verify(orderService, never()).completePayment(any(), any(), any());
+    }
+
+    @Test
+    void parseRequiredAmountRejectsMissingAndMalformedAmounts() {
+        assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(paymentCallbackController, "parseRequiredAmount", (Object) null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(paymentCallbackController, "parseRequiredAmount", "not-a-number"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(paymentCallbackController, "parseRequiredAmount", "0.00"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void handleAlipayCallbackRejectsMissingAmountAfterSignatureVerification() {
+        ReflectionTestUtils.setField(paymentCallbackController, "alipayPublicKey", "configured-public-key");
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        Map<String, String[]> requestParams = new HashMap<>();
+        requestParams.put("out_trade_no", new String[]{"KL-1234"});
+        requestParams.put("trade_status", new String[]{"TRADE_SUCCESS"});
+        requestParams.put("trade_no", new String[]{"ALIPAY-TX-111"});
+        when(request.getParameterMap()).thenReturn(requestParams);
+
+        try (var signatures = mockStatic(com.alipay.api.internal.util.AlipaySignature.class)) {
+            signatures.when(() -> com.alipay.api.internal.util.AlipaySignature.rsaCheckV1(anyMap(), anyString(), anyString(), anyString()))
+                    .thenReturn(true);
+            ResponseEntity<String> response = paymentCallbackController.handleAlipayCallback(request);
+            assertThat(response.getStatusCode().value()).isEqualTo(400);
+        }
+        verify(orderService, never()).completePayment(any(), any(), any());
+        verify(orderService, never()).completePayment(any(), any(), any(), any());
+    }
+
+    @Test
+    void handleAlipayCallbackRejectsAppIdMismatchAndAcceptsTradeFinished() {
+        ReflectionTestUtils.setField(paymentCallbackController, "alipayPublicKey", "configured-public-key");
+        ReflectionTestUtils.setField(paymentCallbackController, "alipayAppId", "expected-app-id");
+
+        HttpServletRequest mismatchReq = mock(HttpServletRequest.class);
+        Map<String, String[]> mismatchParams = new HashMap<>();
+        mismatchParams.put("out_trade_no", new String[]{"KL-APPID-1"});
+        mismatchParams.put("trade_status", new String[]{"TRADE_SUCCESS"});
+        mismatchParams.put("trade_no", new String[]{"ALIPAY-TX-1"});
+        mismatchParams.put("total_amount", new String[]{"850.00"});
+        mismatchParams.put("app_id", new String[]{"wrong-app-id"});
+        when(mismatchReq.getParameterMap()).thenReturn(mismatchParams);
+
+        HttpServletRequest finishedReq = mock(HttpServletRequest.class);
+        Map<String, String[]> finishedParams = new HashMap<>();
+        finishedParams.put("out_trade_no", new String[]{"KL-APPID-2"});
+        finishedParams.put("trade_status", new String[]{"TRADE_FINISHED"});
+        finishedParams.put("trade_no", new String[]{"ALIPAY-TX-2"});
+        finishedParams.put("total_amount", new String[]{"850.00"});
+        finishedParams.put("app_id", new String[]{"expected-app-id"});
+        when(finishedReq.getParameterMap()).thenReturn(finishedParams);
+
+        try (var signatures = mockStatic(com.alipay.api.internal.util.AlipaySignature.class)) {
+            signatures.when(() -> com.alipay.api.internal.util.AlipaySignature.rsaCheckV1(anyMap(), anyString(), anyString(), anyString()))
+                    .thenReturn(true);
+
+            ResponseEntity<String> mismatchResp = paymentCallbackController.handleAlipayCallback(mismatchReq);
+            assertThat(mismatchResp.getStatusCode().value()).isEqualTo(400);
+            verify(orderService, never()).completePayment(eq("KL-APPID-1"), any(), any(), any());
+
+            ResponseEntity<String> finishedResp = paymentCallbackController.handleAlipayCallback(finishedReq);
+            assertThat(finishedResp.getStatusCode().value()).isEqualTo(200);
+            verify(orderService).completePayment("KL-APPID-2", "ALIPAY-TX-2", "ALIPAY", new java.math.BigDecimal("850.00"));
+        }
     }
 
     private String encryptAesGcm(String plaintext, String associatedData, String nonce, String key) throws Exception {
@@ -174,4 +258,3 @@ class PaymentCallbackControllerTest {
         return java.util.Base64.getEncoder().encodeToString(sig.sign());
     }
 }
-

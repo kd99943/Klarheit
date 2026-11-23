@@ -1,9 +1,14 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
+import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import type { ARFrameConfig, ARTransform, ARUserAdjust, FaceLandmark } from "./types";
-import { buildIndoorEnvTexture, captureCompositeFrame, createProceduralGlasses } from "./glassesGeometry";
+import type { ARTrackedFrame, ARFrameConfig, ARTransform, ARUserAdjust, FaceLandmark } from "./types";
+import { captureCompositeFrame, createProceduralGlasses, createHeadOccluder, prepareModelForShadows } from "./glassesGeometry";
 import { enhanceGlbMaterials } from "./enhanceGlbMaterials";
+import { applyVideoCover, videoPixelRatio, toViewportPoint, facePointToWorld, type FaceProjection, wrapFrameModel, disposeModel, estimateFaceLighting } from "./arRendering";
+import { PoseFilter } from "./oneEuroFilter";
+import { createFaceOcclusion } from "./faceOcclusion";
 
 interface ARTryOnCanvasProps {
   stream: MediaStream | null;
@@ -12,13 +17,18 @@ interface ARTryOnCanvasProps {
   landmarks?: FaceLandmark[] | null;
   /** High-frequency landmarks stream — preferred over `landmarks` for tracking. */
   landmarksRef?: { current: FaceLandmark[] | null };
+  sourceVideoRef?: { current: HTMLVideoElement | null };
+  trackedFrameRef?: { current: ARTrackedFrame | null };
   userAdjust?: ARUserAdjust;
   userPdMm?: number | null;
   onCaptureReady: (capture: (() => string | null) | null) => void;
+  /** Loaded is emitted after the GLB replaces the fallback and a render has completed. */
+  onModelLoad?: (result: { url: string; status: "loaded" | "error" }) => void;
   showOverlay?: boolean;
 }
 
 interface ARTransform3D {
+  projection: FaceProjection;
   position: [number, number, number];
   quaternion: THREE.Quaternion;
   scale: [number, number, number];
@@ -46,23 +56,7 @@ function midpoint(a: FaceLandmark, b: FaceLandmark): FaceLandmark {
   };
 }
 
-function toViewportPoint(
-  point: FaceLandmark,
-  videoAspect: number,
-  viewportAspect: number
-): [number, number] {
-  if (videoAspect > viewportAspect) {
-    const visibleWidth = viewportAspect / videoAspect;
-    return [(point.x - (1 - visibleWidth) / 2) / visibleWidth, point.y];
-  }
-  if (videoAspect < viewportAspect) {
-    const visibleHeight = videoAspect / viewportAspect;
-    return [point.x, (point.y - (1 - visibleHeight) / 2) / visibleHeight];
-  }
-  return [point.x, point.y];
-}
-
-function calculateGlassesTransform3D(
+export function calculateGlassesTransform3D(
   landmarks: FaceLandmark[],
   aspect: number,
   videoAspect: number,
@@ -105,8 +99,6 @@ function calculateGlassesTransform3D(
 
   const [leftX, leftY] = toViewportPoint(lmLeft, videoAspect, aspect);
   const [rightX, rightY] = toViewportPoint(lmRight, videoAspect, aspect);
-  const [bridgeX, bridgeY] = toViewportPoint(lmBridge, videoAspect, aspect);
-  const [noseX, noseY] = toViewportPoint(lmNose, videoAspect, aspect);
 
   const eyeDistScreen = Math.hypot(rightX - leftX, rightY - leftY);
   if (eyeDistScreen < 0.02) {
@@ -119,30 +111,18 @@ function calculateGlassesTransform3D(
 
   const frustumHeight = 2 * Math.tan((fov / 2) * Math.PI / 180) * D;
   const frustumWidth = frustumHeight * aspect;
-  const scaleZ = frustumWidth;
+  // MediaPipe z uses the full input image width, including portions cropped by cover.
+  const projection = {
+    width: frustumWidth, height: frustumHeight, z: Z_face, cameraZ,
+    depthScale: frustumWidth * Math.max(1, videoAspect / aspect),
+  };
 
   const { L, R, B, N, dirX, dirYTemp, dirZ, dirY, rotMatrix, quat } = _pool;
 
-  L.set(
-    (leftX - 0.5) * frustumWidth,
-    (0.5 - leftY) * frustumHeight,
-    Z_face - (lmLeft.z || 0) * scaleZ
-  );
-  R.set(
-    (rightX - 0.5) * frustumWidth,
-    (0.5 - rightY) * frustumHeight,
-    Z_face - (lmRight.z || 0) * scaleZ
-  );
-  B.set(
-    (bridgeX - 0.5) * frustumWidth,
-    (0.5 - bridgeY) * frustumHeight,
-    Z_face - (lmBridge.z || 0) * scaleZ
-  );
-  N.set(
-    (noseX - 0.5) * frustumWidth,
-    (0.5 - noseY) * frustumHeight,
-    Z_face - (lmNose.z || 0) * scaleZ
-  );
+  facePointToWorld(lmLeft, projection, videoAspect, aspect, L);
+  facePointToWorld(lmRight, projection, videoAspect, aspect, R);
+  facePointToWorld(lmBridge, projection, videoAspect, aspect, B);
+  facePointToWorld(lmNose, projection, videoAspect, aspect, N);
 
   dirX.copy(R).sub(L).normalize();
   dirYTemp.copy(B).sub(N).normalize();
@@ -156,6 +136,7 @@ function calculateGlassesTransform3D(
   const scaleVal = eyeDistWorld * (lensCenterDistanceMm / (userPdMm * 0.48));
 
   return {
+    projection,
     position: [B.x, B.y, B.z],
     quaternion: quat.clone(),
     scale: [scaleVal, scaleVal, scaleVal],
@@ -168,15 +149,18 @@ export function ARTryOnCanvas({
   transform,
   landmarks,
   landmarksRef,
+  sourceVideoRef,
+  trackedFrameRef,
   userAdjust,
   userPdMm,
   onCaptureReady,
+  onModelLoad,
   showOverlay = true,
 }: ARTryOnCanvasProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const localVideoRef = useRef<HTMLVideoElement | null>(null);
+  const videoRef = sourceVideoRef ?? localVideoRef;
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const glassesGroupRef = useRef<THREE.Group | null>(null);
 
   const targetPos = useRef(new THREE.Vector3());
   const targetQuat = useRef(new THREE.Quaternion());
@@ -184,9 +168,14 @@ export function ARTryOnCanvas({
   const hasTransform = useRef(false);
   const adjustRef = useRef<ARUserAdjust>({ x: 0, y: 0, scale: 1 });
   const landmarksMirror = useRef<FaceLandmark[] | null>(null);
+  const overlayRef = useRef(showOverlay);
+  const pdRef = useRef(userPdMm);
+  pdRef.current = userPdMm;
   const transformMirror = useRef<ARTransform | null>(null);
 
   const onCaptureReadyRef = useRef(onCaptureReady);
+  const onModelLoadRef = useRef(onModelLoad);
+  onModelLoadRef.current = onModelLoad;
   useEffect(() => {
     onCaptureReadyRef.current = onCaptureReady;
   }, [onCaptureReady]);
@@ -204,12 +193,11 @@ export function ARTryOnCanvas({
   }, [transform]);
 
   useEffect(() => {
-    if (glassesGroupRef.current) {
-      glassesGroupRef.current.visible = showOverlay;
-    }
+    overlayRef.current = showOverlay;
   }, [showOverlay]);
 
   useEffect(() => {
+    if (sourceVideoRef) return;
     if (videoRef.current) {
       videoRef.current.srcObject = stream;
     }
@@ -218,50 +206,60 @@ export function ARTryOnCanvas({
         videoRef.current.srcObject = null;
       }
     };
-  }, [stream]);
+  }, [stream, sourceVideoRef, videoRef]);
 
   useEffect(() => {
     const root = rootRef.current;
     const canvas = canvasRef.current;
-    if (!root || !canvas) {
+    const video = videoRef.current;
+    if (!root || !canvas || !video) {
       return;
     }
 
     const renderer = new THREE.WebGLRenderer({
       canvas,
-      alpha: true,
+      alpha: false,
       antialias: true,
       preserveDrawingBuffer: true,
     });
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.18;
-    renderer.setClearColor(0x000000, 0);
+    renderer.toneMappingExposure = 1;
+    renderer.transmissionResolutionScale = 0.5;
+    renderer.setClearColor(0x000000, 1);
 
     const scene = new THREE.Scene();
+    const videoTexture = new THREE.VideoTexture(video);
+    videoTexture.colorSpace = THREE.SRGBColorSpace;
+    videoTexture.minFilter = THREE.LinearFilter;
+    videoTexture.generateMipmaps = false;
+    scene.background = videoTexture;
+    let trackedTexture: THREE.CanvasTexture | null = null;
+    let textureWidth = 0;
+    let textureHeight = 0;
+    let renderedFrame: ARTrackedFrame | null = null;
     const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 10);
     camera.position.z = 2.8;
 
     const pmremGenerator = new THREE.PMREMGenerator(renderer);
-    pmremGenerator.compileEquirectangularShader();
-    const envTexture = buildIndoorEnvTexture();
-    const envRT = pmremGenerator.fromEquirectangular(envTexture);
+    const room = new RoomEnvironment();
+    const envRT = pmremGenerator.fromScene(room, 0.04);
     scene.environment = envRT.texture;
-    envTexture.dispose();
+    scene.environmentIntensity = 0.9;
+    room.dispose();
     pmremGenerator.dispose();
 
-    // Studio portrait AR lighting — balance physical specular pop with natural webcam integration
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.72);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
     scene.add(ambientLight);
 
-    const keyLight = new THREE.DirectionalLight(0xfff7ef, 1.35);
+    const keyLight = new THREE.DirectionalLight(0xffffff, 1);
     keyLight.position.set(1.5, 2.5, 2.5);
     keyLight.castShadow = true;
-    keyLight.shadow.mapSize.width = 1024;
-    keyLight.shadow.mapSize.height = 1024;
+    keyLight.shadow.mapSize.width = 512;
+    keyLight.shadow.mapSize.height = 512;
     keyLight.shadow.bias = -0.0004;
-    keyLight.shadow.radius = 3;
+    keyLight.shadow.radius = 2.5;
     keyLight.shadow.camera.left = -0.5;
     keyLight.shadow.camera.right = 0.5;
     keyLight.shadow.camera.top = 0.5;
@@ -271,78 +269,90 @@ export function ARTryOnCanvas({
     keyLight.shadow.camera.updateProjectionMatrix();
     scene.add(keyLight);
 
-    const fillLight = new THREE.DirectionalLight(0xdcebf8, 0.65);
+    const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
     fillLight.position.set(-2, 1.5, 2);
     scene.add(fillLight);
 
-    const rimLight = new THREE.DirectionalLight(0xffffff, 0.55);
+    const rimLight = new THREE.DirectionalLight(0xffffff, 0.3);
     rimLight.position.set(0, 2.5, -2);
     scene.add(rimLight);
 
     const glassesGroup = new THREE.Group();
-    glassesGroup.visible = showOverlay;
+    glassesGroup.visible = false;
     scene.add(glassesGroup);
-    glassesGroupRef.current = glassesGroup;
 
+    const headOccluder = createHeadOccluder();
+    glassesGroup.add(headOccluder);
+    const faceOcclusion = createFaceOcclusion();
+    scene.add(faceOcclusion.group);
+    const poseFilter = new PoseFilter();
+    hasTransform.current = false;
     let activeModel = createProceduralGlasses(frame);
+    prepareModelForShadows(activeModel);
     glassesGroup.add(activeModel);
 
     const gltfLoader = new GLTFLoader();
+    gltfLoader.setMeshoptDecoder(MeshoptDecoder);
     let isDisposed = false;
+    let modelReadyPending = false;
 
     if (frame.modelUrl) {
       gltfLoader.load(
         frame.modelUrl,
         (gltf) => {
           if (isDisposed) {
-            gltf.scene.traverse((obj) => {
-              if (obj instanceof THREE.Mesh) {
-                obj.geometry.dispose();
-                if (obj.material) {
-                  if (Array.isArray(obj.material)) obj.material.forEach((m) => m?.dispose());
-                  else obj.material.dispose();
-                }
-              }
-            });
+            disposeModel(gltf.scene, true);
             return;
           }
           glassesGroup.remove(activeModel);
-          activeModel.traverse((object) => {
-            if (object instanceof THREE.Mesh) {
-              object.geometry.dispose();
-              if (object.material) {
-                if (Array.isArray(object.material)) object.material.forEach((m) => m?.dispose());
-                else object.material.dispose();
-              }
-            }
-          });
-          activeModel = gltf.scene;
-          enhanceGlbMaterials(activeModel);
+          disposeModel(activeModel, true);
+          enhanceGlbMaterials(gltf.scene, frame);
+          activeModel = wrapFrameModel(gltf.scene, frame);
+          prepareModelForShadows(activeModel);
           glassesGroup.add(activeModel);
+          modelReadyPending = true;
         },
         undefined,
-        () => {
-          // Keep procedural model — silent fallback, already preferred path
+        (error) => {
+          if (isDisposed) return;
+          onModelLoadRef.current?.({ url: frame.modelUrl!, status: "error" });
+          if (import.meta.env.DEV) console.warn("AR frame GLB failed to load", frame.modelUrl, error);
         }
       );
     }
 
     let lastWidth = 0;
     let lastHeight = 0;
+    let lastVideoWidth = 0;
+    let lastVideoHeight = 0;
+    let lastDpr = 0;
+    let projectionChanged = true;
     const resize = () => {
       const bounds = root.getBoundingClientRect();
       const width = Math.max(1, Math.floor(bounds.width));
       const height = Math.max(1, Math.floor(bounds.height));
-      if (width === lastWidth && height === lastHeight) {
+      const source = trackedFrameRef?.current?.image;
+      const sourceWidth = source?.width ?? video.videoWidth;
+      const sourceHeight = source?.height ?? video.videoHeight;
+      if (width === lastWidth && height === lastHeight && sourceWidth === lastVideoWidth && sourceHeight === lastVideoHeight && window.devicePixelRatio === lastDpr) {
         return;
       }
       lastWidth = width;
       lastHeight = height;
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      lastVideoWidth = sourceWidth;
+      lastVideoHeight = sourceHeight;
+      lastDpr = window.devicePixelRatio;
+      projectionChanged = true;
+      renderer.setPixelRatio(videoPixelRatio(lastVideoWidth, lastVideoHeight, width, height, lastDpr));
+      const aspect = lastVideoWidth && lastVideoHeight ? lastVideoWidth / lastVideoHeight : width / height;
+      applyVideoCover(videoTexture, aspect, width / height);
+      if (trackedTexture) applyVideoCover(trackedTexture, aspect, width / height);
       renderer.setSize(width, height, false);
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
     };
+
+    video.addEventListener("loadedmetadata", resize);
 
     // ── Pooled temporaries for applyTracking (reused every frame) ──
     const _localOffset = new THREE.Vector3();
@@ -351,24 +361,25 @@ export function ARTryOnCanvas({
     const _fallbackEuler = new THREE.Euler();
 
     const applyTracking = () => {
-      const sourceLandmarks = landmarksRef?.current ?? landmarksMirror.current;
+      faceOcclusion.group.visible = false;
+      headOccluder.visible = true;
+      const sourceLandmarks = trackedFrameRef ? trackedFrameRef.current?.landmarks : landmarksRef ? landmarksRef.current : landmarksMirror.current;
       if (sourceLandmarks && sourceLandmarks.length > 0) {
         const aspect = lastWidth / Math.max(lastHeight, 1);
-        const video = videoRef.current;
-        const videoAspect =
-          video && video.videoWidth > 0 && video.videoHeight > 0
-            ? video.videoWidth / video.videoHeight
-            : aspect;
+        const videoAspect = lastVideoWidth && lastVideoHeight ? lastVideoWidth / lastVideoHeight : aspect;
         const transform3D = calculateGlassesTransform3D(
           sourceLandmarks,
           aspect,
           videoAspect,
           frame.lensCenterDistanceMm ?? 71,
-          userPdMm ?? 63,
+          pdRef.current ?? 63,
           35,
           2.8
         );
         if (transform3D) {
+          headOccluder.visible = !faceOcclusion.update(sourceLandmarks, transform3D.projection,
+            videoAspect, aspect, transform3D.quaternion,
+            transform3D.scale[0] * 0.48 / (frame.lensCenterDistanceMm ?? 71));
           const offset = frame.transformOffset;
           const adjust = adjustRef.current;
           _localOffset.set(
@@ -404,7 +415,7 @@ export function ARTryOnCanvas({
         }
       }
 
-      const fallback = transformMirror.current;
+      const fallback = trackedFrameRef || landmarksRef ? null : transformMirror.current;
       if (!fallback) {
         hasTransform.current = false;
         return;
@@ -436,24 +447,76 @@ export function ARTryOnCanvas({
     };
     document.addEventListener("visibilitychange", onVisibilityChange);
 
-    const renderFrame = () => {
+    const lightCanvas = document.createElement("canvas");
+    lightCanvas.width = 64;
+    lightCanvas.height = 48;
+    const lightContext = lightCanvas.getContext("2d", { willReadFrequently: true });
+    let lastLightSample = -Infinity;
+    let lastLandmarks: FaceLandmark[] | null = null;
+    let lastFallback: ARTransform | null = null;
+    let lastAdjust: ARUserAdjust | null = null;
+    let lastPd: number | null | undefined;
+    const renderFrame = (timestamp = performance.now()) => {
       if (!paused) {
-        resize();
-        applyTracking();
-
-        if (hasTransform.current && glassesGroupRef.current) {
-          // EMA follow — 0.38 is snappy without jitter for 30fps landmarks
-          glassesGroup.position.lerp(targetPos.current, 0.38);
-          glassesGroup.quaternion.slerp(targetQuat.current, 0.38);
-          glassesGroup.scale.lerp(targetScale.current, 0.38);
+        const trackedFrame = trackedFrameRef?.current ?? null;
+        if (trackedFrame && trackedFrame !== renderedFrame) {
+          if (!trackedTexture ||
+              textureWidth !== trackedFrame.image.width || textureHeight !== trackedFrame.image.height) {
+            trackedTexture?.dispose();
+            trackedTexture = new THREE.CanvasTexture(trackedFrame.image);
+            trackedTexture.colorSpace = THREE.SRGBColorSpace;
+            trackedTexture.minFilter = THREE.LinearFilter;
+            trackedTexture.generateMipmaps = false;
+            textureWidth = trackedFrame.image.width;
+            textureHeight = trackedFrame.image.height;
+            projectionChanged = true;
+            applyVideoCover(trackedTexture, textureWidth / textureHeight, camera.aspect);
+          }
+          trackedTexture.image = trackedFrame.image;
+          trackedTexture.needsUpdate = true;
         }
-
+        scene.background = trackedFrame && trackedTexture ? trackedTexture : videoTexture;
+        resize();
+        const source = trackedFrameRef ? trackedFrame?.landmarks ?? null : landmarksRef ? landmarksRef.current : landmarksMirror.current;
+        // Filter once per new tracking result; repeated display frames must not bias velocity.
+        if (trackedFrame !== renderedFrame || source !== lastLandmarks || (!trackedFrameRef && !landmarksRef && transformMirror.current !== lastFallback) ||
+            adjustRef.current !== lastAdjust || pdRef.current !== lastPd || projectionChanged || !hasTransform.current) {
+          applyTracking();
+          if (hasTransform.current) {
+            poseFilter.apply(glassesGroup, targetPos.current, targetQuat.current, targetScale.current, trackedFrame?.timestampMs ?? timestamp);
+          } else {
+            poseFilter.reset();
+          }
+          lastLandmarks = source;
+          lastFallback = transformMirror.current;
+          lastAdjust = adjustRef.current;
+          lastPd = pdRef.current;
+          projectionChanged = false;
+        }
+        renderedFrame = trackedFrame;
+        glassesGroup.visible = overlayRef.current && hasTransform.current;
+        faceOcclusion.group.visible = glassesGroup.visible && !headOccluder.visible;
+        if (lightContext && source && (trackedFrame || video.readyState >= 2) && timestamp - lastLightSample >= 200) {
+          lastLightSample = timestamp;
+          lightContext.drawImage(trackedFrame?.image ?? video, 0, 0, 64, 48);
+          const lighting = estimateFaceLighting(lightContext.getImageData(0, 0, 64, 48).data, 64, 48, source);
+          if (lighting) {
+            renderer.toneMappingExposure += (lighting.exposure - renderer.toneMappingExposure) * 0.1;
+            keyLight.color.lerp(lighting.color, 0.1);
+            ambientLight.color.lerp(lighting.color, 0.1);
+            keyLight.position.x += (lighting.direction * 3 - keyLight.position.x) * 0.1;
+          }
+        }
         renderer.render(scene, camera);
+        if (modelReadyPending) {
+          modelReadyPending = false;
+          onModelLoadRef.current?.({ url: frame.modelUrl!, status: "loaded" });
+        }
       }
       frameId = window.requestAnimationFrame(renderFrame);
     };
 
-    onCaptureReadyRef.current?.(() => captureCompositeFrame(videoRef.current, canvas));
+    onCaptureReadyRef.current?.(() => renderedFrame || video.readyState >= 2 ? captureCompositeFrame(canvas) : null);
     renderFrame();
 
     return () => {
@@ -461,38 +524,30 @@ export function ARTryOnCanvas({
       document.removeEventListener("visibilitychange", onVisibilityChange);
       onCaptureReadyRef.current?.(null);
       isDisposed = true;
-      glassesGroupRef.current = null;
       scene.remove(glassesGroup);
-      activeModel.traverse((object) => {
-        if (object instanceof THREE.Mesh) {
-          object.geometry.dispose();
-          const material = object.material;
-          if (material) {
-            if (Array.isArray(material)) {
-              material.forEach((item) => item?.dispose());
-            } else {
-              material.dispose();
-            }
-          }
-        }
-      });
+      disposeModel(glassesGroup, true);
+      disposeModel(faceOcclusion.group);
+      video.removeEventListener("loadedmetadata", resize);
+      videoTexture.dispose();
+      trackedTexture?.dispose();
+      keyLight.shadow.dispose();
       envRT?.dispose?.();
       renderer.dispose();
     };
     // userAdjust / landmarks / transform / showOverlay / onCaptureReady are read via refs
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [frame, landmarksRef]);
+  }, [frame, landmarksRef, sourceVideoRef, trackedFrameRef]);
 
   return (
     <div ref={rootRef} className="absolute inset-0 overflow-hidden bg-[#0b1220]">
-      <video
+      {!sourceVideoRef && <video
         ref={videoRef}
         data-testid="ar-video-layer"
-        className="absolute inset-0 h-full w-full scale-x-[-1] object-cover"
+        className="absolute inset-0 h-full w-full object-cover opacity-0 pointer-events-none"
         autoPlay
         muted
         playsInline
-      />
+      />}
       <canvas
         ref={canvasRef}
         data-testid="ar-canvas-layer"

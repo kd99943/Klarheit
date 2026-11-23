@@ -36,6 +36,17 @@ export function AddressesPage() {
     return () => clearTimeout(timer);
   }, [actionError]);
 
+  useEffect(() => {
+    if (!showModal) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setShowModal(false);
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [showModal]);
+
   async function loadAddresses() {
     setIsLoading(true);
     setError(null);
@@ -242,13 +253,23 @@ export function AddressesPage() {
 
         {/* Create/Edit Address Modal Overlay */}
         {showModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand-primary/40 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-[32px] border border-slate-200/50 shadow-2xl max-w-lg w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-brand-primary/40 backdrop-blur-sm p-4"
+            onClick={() => setShowModal(false)}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="address-modal-title"
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-[32px] border border-slate-200/50 shadow-2xl max-w-lg w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+            >
               <div className="bg-brand-primary px-6 py-6 text-white flex justify-between items-center">
-                <h3 className="font-display font-medium text-lg tracking-wide">
+                <h3 id="address-modal-title" className="font-display font-medium text-lg tracking-wide text-white">
                   {editingId ? t("addresses.editTitle") : t("addresses.addTitle")}
                 </h3>
                 <button
+                  type="button"
                   onClick={() => setShowModal(false)}
                   className="text-white/70 hover:text-white text-sm uppercase tracking-widest font-semibold"
                 >

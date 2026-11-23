@@ -1,5 +1,6 @@
 package com.klarheit.backend.config;
 
+import com.klarheit.backend.order.QuoteVersionConflictException;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.ConstraintViolationException;
 import java.util.List;
@@ -26,9 +27,19 @@ public class ApiExceptionHandler {
                 .body(new ApiErrorResponse("Not Found", exception.getMessage(), List.of()));
     }
 
+    @ExceptionHandler(QuoteVersionConflictException.class)
+    public ResponseEntity<ApiErrorResponse> handleQuoteVersionConflict(QuoteVersionConflictException exception) {
+        log.warn("Quote version conflict: {} (currentVersion={})", exception.getMessage(), exception.getCurrentQuoteVersion());
+        List<String> details = exception.getCurrentQuoteVersion() != null
+                ? List.of("QUOTE_VERSION_CONFLICT", "currentQuoteVersion=" + exception.getCurrentQuoteVersion())
+                : List.of("QUOTE_VERSION_CONFLICT");
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ApiErrorResponse(HttpStatus.CONFLICT.getReasonPhrase(), exception.getMessage(), details));
+    }
+
     /**
      * 处理业务状态冲突：所有 IllegalStateException 都表示"当前业务状态不允许此操作"
-     * （例如：验证码冷却期重复发送、验证码已过期/已被核销、优惠券核销失败、支付金额不匹配等）。
+     * （例如：验证码冷却期重复发送、验证码已过期/已被核销、优惠券核销失败、支付金额不匹配、支付状态核对中暂不可取消等）。
      * 根据错误消息语义细化为更合适的 HTTP 状态码，保留原始错误消息供前端展示。
      */
     @ExceptionHandler(IllegalStateException.class)
@@ -37,8 +48,8 @@ public class ApiExceptionHandler {
         String message = exception.getMessage();
         HttpStatus status = HttpStatus.CONFLICT;
         if (message != null) {
-            // 限流类错误：包含"重试"或"尝试次数过多"
-            if (message.contains("重试") || message.contains("尝试次数过多")) {
+            // 限流类错误：包含"秒后重试"或"尝试次数过多"
+            if (message.contains("秒后重试") || message.contains("尝试次数过多")) {
                 status = HttpStatus.TOO_MANY_REQUESTS;
             }
         }

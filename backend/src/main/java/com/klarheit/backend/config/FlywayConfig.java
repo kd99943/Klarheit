@@ -1,6 +1,6 @@
 package com.klarheit.backend.config;
 
-import org.flywaydb.core.Flyway;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.flyway.FlywayMigrationStrategy;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -9,9 +9,12 @@ import org.springframework.context.annotation.Configuration;
 public class FlywayConfig {
 
     @Bean
-    public FlywayMigrationStrategy flywayMigrationStrategy() {
+    public FlywayMigrationStrategy flywayMigrationStrategy(
+            @Value("${spring.flyway.repair-on-migrate:false}") boolean repairOnMigrate) {
         return flyway -> {
-            flyway.repair();
+            if (repairOnMigrate) {
+                flyway.repair();
+            }
             flyway.migrate();
         };
     }

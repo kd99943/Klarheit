@@ -12,6 +12,22 @@ class ProductAndLensControllerIntegrationTests extends BaseIntegrationTest {
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbc;
+
+    @Test
+    @org.springframework.transaction.annotation.Transactional
+    void modelMetadataSurvivesMigrationPersistenceAndCatalogResponse() throws Exception {
+        Long productId = jdbc.queryForObject("SELECT product_id FROM product_ar_configs LIMIT 1", Long.class);
+        jdbc.update("UPDATE product_ar_configs SET model_url = ?, model_scale_mode = ?, legacy_materials = ? WHERE product_id = ?",
+                "/models/measured.glb", "real-meters", false, productId);
+        mockMvc.perform(get("/api/v1/products/" + productId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.arConfigs[0].modelUrl").value("/models/measured.glb"))
+                .andExpect(jsonPath("$.arConfigs[0].modelScaleMode").value("real-meters"))
+                .andExpect(jsonPath("$.arConfigs[0].legacyMaterials").value(false));
+    }
+
     @Test
     void productCatalogIsAvailable() throws Exception {
         mockMvc.perform(get("/api/v1/products"))

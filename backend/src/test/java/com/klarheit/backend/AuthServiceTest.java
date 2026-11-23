@@ -206,4 +206,27 @@ class AuthServiceTest {
 
         verify(userAccountRepository).findByPhone(phone);
     }
+
+    @Test
+    void changePassword_succeedsAndRejectsWrongCurrentPassword() {
+        UserAccount user = UserAccount.builder()
+                .id(10L)
+                .email("john@example.com")
+                .passwordHash("old_hash")
+                .build();
+        when(userAccountRepository.findByEmailIgnoreCase("john@example.com")).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("wrong_pw", "old_hash")).thenReturn(false);
+
+        assertThatThrownBy(() -> authService.changePassword("john@example.com", "wrong_pw", "newPassword123"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("当前密码不正确");
+
+        when(passwordEncoder.matches("old_pw", "old_hash")).thenReturn(true);
+        when(passwordEncoder.matches("newPassword123", "old_hash")).thenReturn(false);
+        when(passwordEncoder.encode("newPassword123")).thenReturn("new_hash");
+
+        authService.changePassword("john@example.com", "old_pw", "newPassword123");
+        assertThat(user.getPasswordHash()).isEqualTo("new_hash");
+        verify(userAccountRepository).save(user);
+    }
 }

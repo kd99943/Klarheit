@@ -20,15 +20,18 @@ FROM eclipse-temurin:21.0.6_7-jre-alpine
 
 WORKDIR /app
 
-# Design secure OS group and unprivileged execution user
-RUN addgroup -S spring && adduser -S spring -G spring
-USER spring:spring
+# Generate JDK Class-Data Sharing (CDS) archive so core JDK classes map as file-backed pages instead of anon Metaspace
+RUN java -Xshare:dump
 
-# Copy production compiled executable from compiler output
+# Copy compiled fat JAR and extract into standard unpacked layout to eliminate NestedJarFile anon memory overhead
 COPY --from=compiler /app/target/backend-0.0.1-SNAPSHOT.jar app.jar
+RUN java -Djarmode=tools -jar app.jar extract --destination /app/extracted && rm -f app.jar
+
+# Design secure OS group and unprivileged execution user
+RUN addgroup -S spring && adduser -S spring -G spring && chown -R spring:spring /app
+USER spring:spring
 
 EXPOSE 8080
 
-# Use shell form so Railway's $PORT env var is expanded at runtime.
-# Falls back to 8080 if PORT is not set (e.g. local docker run).
-CMD ["sh", "-c", "java -Djava.security.egd=file:/dev/./urandom -Dserver.port=${PORT:-8080} -jar app.jar"]
+# Use shell form so Railway/Northflank $PORT env var is expanded at runtime.
+CMD ["sh", "-c", "exec java -Djava.security.egd=file:/dev/./urandom -Dserver.port=${PORT:-8080} -jar /app/extracted/app.jar"]
